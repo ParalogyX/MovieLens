@@ -1,0 +1,1 @@
+#Here will be all pre-handling of the data for analysis (splitting on train/test, filtering, scaling etc)
