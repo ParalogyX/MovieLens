@@ -49,4 +49,5 @@ half_star_less_common <- sum(edx$rating != round(edx$rating)) < sum(edx$rating =
 print(c("Statement that half star ratings are less common than whole star ratings is ", half_star_less_common), quote = FALSE)
 
 
-
+#clean up environment:
+rm(most_rated_movie_title, five_most_given_ratings, half_star_less_common)
