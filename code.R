@@ -103,18 +103,18 @@ edx_unique_info
 
 
 
-top_rated_movies <- edx %>% count(movieId) %>% top_n(5) %>% pull(movieId)
-top_active_users <- edx %>% count(userId) %>% top_n(5) %>% pull(userId)
-
-tab <- edx %>%
-  filter(userId %in% top_active_users) %>% 
-  filter(movieId %in% keep) %>% 
-  select(userId, title, rating) %>% 
-  spread(title, rating)
-
-tab
-
-
+# top_rated_movies <- edx %>% count(movieId) %>% top_n(5) %>% pull(movieId)
+# top_active_users <- edx %>% count(userId) %>% top_n(5) %>% pull(userId)
+# 
+# tab <- edx %>%
+#   filter(userId %in% top_active_users) %>% 
+#   filter(movieId %in% keep) %>% 
+#   select(userId, title, rating) %>% 
+#   spread(title, rating)
+# 
+# tab
+# 
+# 
 
 users <- sample(unique(edx$userId), 100)
 edx %>% filter(userId %in% users) %>% 
@@ -122,7 +122,7 @@ edx %>% filter(userId %in% users) %>%
   mutate(rating = 1) %>%
   spread(movieId, rating) %>% select(sample(ncol(.), 100)) %>% 
   as.matrix() %>% t(.) %>%
-  image(1:100, 1:100,. , xlab="Movies", ylab="Users")
+  image(1:100, 1:100,. , xlab="Movies", ylab="Users", col = gray.colors(n = 2, start = 0, end = 0))
 abline(h=0:100+0.5, v=0:100+0.5, col = "grey")
 
 
@@ -131,43 +131,43 @@ abline(h=0:100+0.5, v=0:100+0.5, col = "grey")
 # So we can think of these data as a very large matrix, with users on the rows and movies on the columns, with many empty cells.
 # To visualize it we will sample 100 movies and 100 users and make a matrix with a user/movie combination for which we have a rating:
 # 
-# 100 random users
-by_user <- edx %>% pull(userId) %>% unique() %>% sample(size = 100)
-
-# 100 random movies
-by_movie <- edx %>% pull(movieId) %>% unique() %>% sample(size = 100)
-
-reduced_edx <- edx %>% filter(movieId %in% by_movie, userId %in% by_user)
-
-tst <- data.frame(by_user, by_movie)
-
-#reduced_edx <- edx %>% filter(movieId %in% by_movie) %>% sample_n(size = 100)# %>% ungroup()
-
-
-#reduced_edx <- reduced_edx[sample(1:nrow(reduced_edx), 100), ]  %>% ungroup() 
-
-
-
-#users in reduced:
-reduced_edx_unique_info <- reduced_edx %>% 
-  summarise(n_user_edx = n_distinct(userId),
-            n_Movie_edx = n_distinct(movieId))
-reduced_edx_unique_info
-
-
-edx %>% filter(movieId %in% c(52666, 37837))
-edx %>% filter(movieId %in% c(37837, 52666))
-
-tst <- reduced_edx %>% select(title, userId, rating) %>% pivot_wider(names_from = title, values_from = rating)
-
-
-#first_movie <- edx %>% group_by(movieId) %>% filter(movieId == by_movie)
-
-RatingMat <- dcast(reduced_edx, userId ~movieId, value.var = "rating")
-
-image(as.matrix(RatingMat), col = hcl.colors(12, "Cork", rev = TRUE))
-
-tst <- data.frame(by_movie, row.names = by_user)
+# # 100 random users
+# by_user <- edx %>% pull(userId) %>% unique() %>% sample(size = 100)
+# 
+# # 100 random movies
+# by_movie <- edx %>% pull(movieId) %>% unique() %>% sample(size = 100)
+# 
+# reduced_edx <- edx %>% filter(movieId %in% by_movie, userId %in% by_user)
+# 
+# tst <- data.frame(by_user, by_movie)
+# 
+# #reduced_edx <- edx %>% filter(movieId %in% by_movie) %>% sample_n(size = 100)# %>% ungroup()
+# 
+# 
+# #reduced_edx <- reduced_edx[sample(1:nrow(reduced_edx), 100), ]  %>% ungroup() 
+# 
+# 
+# 
+# #users in reduced:
+# reduced_edx_unique_info <- reduced_edx %>% 
+#   summarise(n_user_edx = n_distinct(userId),
+#             n_Movie_edx = n_distinct(movieId))
+# reduced_edx_unique_info
+# 
+# 
+# edx %>% filter(movieId %in% c(52666, 37837))
+# edx %>% filter(movieId %in% c(37837, 52666))
+# 
+# tst <- reduced_edx %>% select(title, userId, rating) %>% pivot_wider(names_from = title, values_from = rating)
+# 
+# 
+# #first_movie <- edx %>% group_by(movieId) %>% filter(movieId == by_movie)
+# 
+# RatingMat <- dcast(reduced_edx, userId ~movieId, value.var = "rating")
+# 
+# image(as.matrix(RatingMat), col = hcl.colors(12, "Cork", rev = TRUE))
+# 
+# tst <- data.frame(by_movie, row.names = by_user)
 
 # by_user <- edx %>% group_by(userId)
 # tst <- slice_sample(by_user, n = 1)
