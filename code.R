@@ -2,6 +2,10 @@
 #                        LIBRARIES                        #
 ###########################################################
 
+# clear console output
+cat("\014")
+
+
 # library installations if needed:
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
@@ -350,7 +354,7 @@ day_of_rating <- edx %>% group_by(day_rated) %>%
 
 day_of_rating %>% 
   ggplot(aes(day_rated, day_rated_rating)) + 
-  geom_point(color = "red")
+  geom_point(color = "red") +
   ggtitle("Figure 5-Effect of rated day of the week on Rating") +
   xlab("Rated DoW") +
   ylab("Rating") +
