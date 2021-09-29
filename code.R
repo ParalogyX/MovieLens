@@ -12,6 +12,8 @@ if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.
 if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
 if(!require(lubridate)) install.packages("lubridate", repos = "http://cran.us.r-project.org")
 if(!require(Matrix)) install.packages("lubridate", repos = "http://cran.us.r-project.org")
+if(!require(stringr)) install.packages("stringr", repos = "http://cran.us.r-project.org")
+if(!require(pheatmap)) install.packages("pheatmap", repos = "http://cran.us.r-project.org")
 
 # loading libraries
 library(tidyverse)
@@ -19,6 +21,9 @@ library(caret)
 library(data.table)
 library(lubridate)
 library(Matrix)
+library(stringr)
+library(pheatmap)
+
 
 ###########################################################
 # Create edx set, validation set (final hold-out test set)#
@@ -92,114 +97,77 @@ dim(validation)
 ###########################################################
 
 # first look at the data:
+class(edx)
 head(edx)
 str(edx)
 
 
 
-# the number of unique users and movies in datasets
-edx_unique_info <- edx %>% 
-  summarise(n_user_edx = n_distinct(userId),
-            n_Movie_edx = n_distinct(movieId))
-edx_unique_info
-
-
-
-
-
-# top_rated_movies <- edx %>% count(movieId) %>% top_n(5) %>% pull(movieId)
-# top_active_users <- edx %>% count(userId) %>% top_n(5) %>% pull(userId)
-# 
-# tab <- edx %>%
-#   filter(userId %in% top_active_users) %>% 
-#   filter(movieId %in% keep) %>% 
-#   select(userId, title, rating) %>% 
-#   spread(title, rating)
-# 
-# tab
-# 
-# 
-
-users <- sample(unique(edx$userId), 100)
-edx %>% filter(userId %in% users) %>% 
-  select(userId, movieId, rating) %>%
-  mutate(rating = 1) %>%
-  spread(movieId, rating) %>% select(sample(ncol(.), 100)) %>% 
-  as.matrix() %>% t(.) %>%
-  image(1:100, 1:100,. , xlab="Movies", ylab="Users", col = gray.colors(n = 2, start = 0, end = 0))
-abline(h=0:100+0.5, v=0:100+0.5, col = "grey")
-
-
-# If we multiply those two numbers, we get a number around 750 millions, yet our data table has about 9 millions rows. 
-# This implies that not every user rated every movie. 
-# So we can think of these data as a very large matrix, with users on the rows and movies on the columns, with many empty cells.
-# To visualize it we will sample 100 movies and 100 users and make a matrix with a user/movie combination for which we have a rating:
-# 
-# # 100 random users
-# by_user <- edx %>% pull(userId) %>% unique() %>% sample(size = 100)
-# 
-# # 100 random movies
-# by_movie <- edx %>% pull(movieId) %>% unique() %>% sample(size = 100)
-# 
-# reduced_edx <- edx %>% filter(movieId %in% by_movie, userId %in% by_user)
-# 
-# tst <- data.frame(by_user, by_movie)
-# 
-# #reduced_edx <- edx %>% filter(movieId %in% by_movie) %>% sample_n(size = 100)# %>% ungroup()
-# 
-# 
-# #reduced_edx <- reduced_edx[sample(1:nrow(reduced_edx), 100), ]  %>% ungroup() 
-# 
-# 
-# 
-# #users in reduced:
-# reduced_edx_unique_info <- reduced_edx %>% 
-#   summarise(n_user_edx = n_distinct(userId),
-#             n_Movie_edx = n_distinct(movieId))
-# reduced_edx_unique_info
-# 
-# 
-# edx %>% filter(movieId %in% c(52666, 37837))
-# edx %>% filter(movieId %in% c(37837, 52666))
-# 
-# tst <- reduced_edx %>% select(title, userId, rating) %>% pivot_wider(names_from = title, values_from = rating)
-# 
-# 
-# #first_movie <- edx %>% group_by(movieId) %>% filter(movieId == by_movie)
-# 
-# RatingMat <- dcast(reduced_edx, userId ~movieId, value.var = "rating")
-# 
-# image(as.matrix(RatingMat), col = hcl.colors(12, "Cork", rev = TRUE))
-# 
-# tst <- data.frame(by_movie, row.names = by_user)
-
-# by_user <- edx %>% group_by(userId)
-# tst <- slice_sample(by_user, n = 1)
-# by_movie <- tst %>% group_by(movieId)
-# tst2 <- slice_sample(by_movie, n = 1)
-# 
-# 
-# 
-# gg <- pivot_wider(tst2, id_cols = 'userId', names_from = 'title', values_from = 'rating')
-# 
-# 
-# image(as.matrix(gg))
-# 
-# 
-# gg <- sparseMatrix(i = tst$movieId, j = tst$userId)
-# 
-# 
-# RatingMat <- !is.na(dcast(tst, userId ~movieId, value.var = "rating"))
-# image(as.matrix(RatingMat))
-# 
-# head(RatingMat)
+# rating analysis
+unique(edx$rating)
+summary(edx$rating)
 
 # the distribution of different ratings
 edx %>% ggplot(aes(rating)) + 
-  geom_histogram(binwidth = 0.5, lwd = 1)+
-  xlab("Rating") + ylab("Count")+ 
-  ggtitle("Distibution of Movie rating") +
+  geom_bar(col = "black") +
+  xlab("Rating") + ylab("Count" )+ 
+  scale_y_continuous(breaks = seq(0,3*10^6,10^6),
+                     labels=c("0","1M","2M","3M")) +
+  ggtitle("Distibution of Movie ratings") +
   theme(plot.title = element_text(hjust = 0.5)) 
+
+#Comparing rating types
+edx %>%
+  mutate(rating_type = if_else(rating > mean(rating), "postitive",
+                               "negative")) %>%
+  group_by(rating_type) %>%
+  count()
+
+
+#Comparing half star and whole star ratings
+edx %>%
+  mutate(rating_star = if_else(!rating %%1, "whole_star",
+                               "half_star")) %>%
+  group_by(rating_star) %>%
+  count()
+
+# Movies and users
+
+# the number of unique users and movies in datasets
+edx_unique_info <- edx %>% 
+  summarise(n_user_unique = n_distinct(userId),
+            n_Movie_unique = n_distinct(movieId))
+edx_unique_info
+
+# total user/movie combination
+edx_unique_info$n_user_unique * edx_unique_info$n_Movie_unique
+
+nrow(edx)
+
+# how many ratings are missing?
+paste(nrow(edx) / (edx_unique_info$n_user_unique * edx_unique_info$n_Movie_unique) * 100, "%")
+
+
+users <- sample(unique(edx$userId), 100)
+sample_matrix <- edx %>% filter(userId %in% users) %>% 
+  select(userId, movieId, rating) %>%
+  mutate(rating = 1) %>%
+  spread(movieId, rating) %>% select(sample(ncol(.), 100)) %>% 
+  as.matrix() %>% t(.)
+sample_matrix  %>%
+  image(1:100, 1:100,. , xlab="Movies", ylab="Users", col = gray.colors(n = 2, start = 0, end = 0))
+abline(h=0:100+0.5, v=0:100+0.5, col = "grey")
+mtext(paste(sum(!is.na(sample_matrix)), 
+                " User/movie combinations are rated (", 
+                round(sum(!is.na(sample_matrix))/sum(is.na(sample_matrix)) * 100, 1), " %) \n"))
+mtext(paste(sum(is.na(sample_matrix)), " User/movie combinations are unrated"))
+title("User/Movie combinations", line = 3)
+
+
+
+rm(users, edx_unique_info)
+
+# Movies analysis
 
 # top rated movies
 edx %>% group_by(movieId) %>% 
@@ -224,7 +192,20 @@ edx %>% group_by(movieId) %>%
 edx %>% group_by(movieId) %>% 
   summarise(number_of_ratings  = n()) %>%
   ggplot(aes(number_of_ratings)) +
-  geom_histogram(bins = 100) + scale_x_log10()
+  geom_histogram(bins = 100, col = "black") + scale_x_log10() +
+  ggtitle("Distribution of movies by no. of rating") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# Plotting movie distribution by mean rating
+edx %>% group_by(movieId) %>% 
+  summarise(average_movie_ratings  = mean(rating)) %>%
+  ggplot(aes(average_movie_ratings)) +
+  geom_histogram(bins = 100,col = "black") +
+  geom_vline(xintercept = mean(edx$rating), col = "yellow") +
+  ylab("Count of movies") +
+  ggtitle("Distribution of movies by mean rating of movies") +
+  theme(plot.title = element_text(hjust = 0.5))
 
 
 # Effect of the number of movie ratings on average rating of this movie
@@ -252,7 +233,7 @@ edx %>% group_by(movieId) %>%
   arrange(number_of_ratings) %>% distinct() %>% head(10)
 
 # Look at these tables confirms, that movies which were rated more often, have higher average rating
-# We can see that the movie "Hellhounds on My Trail (1999)" also appeared in top rated movies table
+# We can see that the movie "Hellhounds on My Trail (1999)" also appeared in top rated movies table as it has average rating 5
 # But it is based only on a single rating, which cannot be reliable. We will account it later, during model building and tuning.
 
 
@@ -260,7 +241,26 @@ edx %>% group_by(movieId) %>%
 edx %>% group_by(userId) %>% 
   summarise(number_of_ratings_by_user  = n()) %>%
   ggplot(aes(number_of_ratings_by_user)) +
-  geom_histogram(bins = 100) + scale_x_log10()
+  geom_histogram(bins = 100, col = "black") + scale_x_log10()
+
+
+
+# Plotting user distribution by mean rating of user
+edx %>% group_by(userId) %>% 
+  summarise(average_user_ratings  = mean(rating)) %>%
+  ggplot(aes(average_user_ratings)) +
+  geom_histogram(bins = 100,col = "black") +
+  geom_vline(xintercept = mean(edx$rating), col = "yellow") +
+  ylab("Count of movies") +
+  ggtitle("Distribution of users by mean rating of user") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Finding distribution of users by star type
+edx %>%
+  mutate(rating_star = ifelse(!rating %%1,
+                              "whole_star", "half_star")) %>%
+  group_by(rating_star) %>%
+  summarise(n_users = n_distinct(userId))
 
 
 # Effect of the number of movies rated by User on average rating by this user (for users who rated 100 or more movies)
@@ -300,7 +300,6 @@ edx <- edx %>%
          month_rated = month(as_datetime(timestamp)),
          day_rated = weekdays(as_datetime(timestamp))) %>% 
   select(-timestamp)
-
 
 
 # Effect of released year of movieId on rating
@@ -364,33 +363,81 @@ day_of_rating %>%
 #DoW just slightly (min 3.5 on Sundays and max 3.53 on Saturdays)
 
 
+# genres analysis
+n_distinct(edx$genres)
+
+head(edx$genres, 10)
+
+# We can see, that genres are combined in 797 different groups
+
 # Relation of type of genres on average of rating 
 single_genres <- edx %>% separate_rows(genres, sep = "\\|") %>%
   group_by(genres) %>%
-  summarise(number_of_genres = n(), avg_rating = mean(rating))
+  summarise(number_of_ratings = n(), avg_rating = mean(rating))
 
 single_genres %>% arrange(desc(avg_rating)) 
+
 
 single_genres %>% 
   arrange(desc(number_of_genres)) %>% 
   ggplot(aes(genres, avg_rating)) +
-  geom_col(color = "red", fill = "blue" , size = 1) + 
-  ggtitle("Average of rating versus type of genres") +
+  geom_col(color = "black" ) + 
+  ggtitle("Average rating versus separated genres") +
   xlab("Genres") + 
-  ylab("Average of rating") +
+  ylab("Average rating") +
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(axis.text.x = element_text(angle = 90 , hjust = 0.5))
 
+edx %>% filter(genres == "(no genres listed)") %>% group_by(movieId) %>% pull(title) %>% unique()
+
+# Try to find combinations which are most common to reduce variability of genres combinations
+# We will do it in form of correlation matrix, where numbers in cells shows how many times the specific genre appears in combination with 
+# another one
+
+genre_cor <- setNames(data.frame(matrix(ncol = 20, nrow = 20)), single_genres$genres) 
+genre_cor[1,1] <- 1
+
+genres_list <- single_genres$genres
+
+genres_combinations <- sapply(genres_list, function(x){
+  combination <- edx %>% filter(grepl(x, genres, fixed = TRUE)) %>% select(genres) %>%unique()
+  str_count(as.character(combination), genres_list)
+})
+
+rownames(genres_combinations) <- genres_list
+
+genres_combinations
+
+heatmap(x = genres_combinations, Colv=NA, Rowv=NA)
+
+pheatmap(genres_combinations, display_numbers = T, color = colorRampPalette(c('white','red'))(100), cluster_rows = F, cluster_cols = F, fontsize_number = 15)
 
 
 
+genres_combinations %>% mutate(genre = genres_list)
+
+genres_combinations %>% ggplot(aes(x = ))
+
+action_genres_combinations <- edx %>% filter(grepl(colnames(genre_cor)[2], genres, fixed = TRUE)) %>% select(genres) %>%unique()# %>% slice(1:100)
+
+str_count(as.character(action_genres_combinations), genres_list)
 
 
 
+grepl("Comedy", action_genres_combinations, fixed = TRUE)
+
+grepl(colnames(genre_cor)[2], edx$genres %>% filter())
+
+
+#colnames(genre_cor) <- single_genres$genres
 #change genres to another based on their correlations
 
 
-
+#Creating genres matrix
+mg_mat <- single_genres %>%
+  mutate(genre_value = 1) %>%
+  pivot_wider(movieId,names_from = genres,values_from=genre_value,
+              values_fill = 0,values_fn = mean)
 
 
 # how many moves have only one rating 
