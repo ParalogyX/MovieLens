@@ -379,8 +379,8 @@ single_genres %>% arrange(desc(avg_rating))
 
 
 single_genres %>% 
-  arrange(desc(number_of_genres)) %>% 
-  ggplot(aes(genres, avg_rating)) +
+  arrange(desc(avg_rating)) %>% 
+  ggplot(aes(x = reorder(genres, avg_rating), y = avg_rating)) +
   geom_col(color = "black" ) + 
   ggtitle("Average rating versus separated genres") +
   xlab("Genres") + 
@@ -390,66 +390,146 @@ single_genres %>%
 
 edx %>% filter(genres == "(no genres listed)") %>% group_by(movieId) %>% pull(title) %>% unique()
 
+
+genreList <- as.factor(edx$genres)
+levels(genreList)
+
+
+# The two lines above gave me a quick way to see what genres are in the data.
+
+# Let's make columns to check for each genre.
+
+# Keep in mind we are merely making it easier for the computer to understand what
+# genres are involved in each review.
+
+# genres names without (no genres listed)
+names <- single_genres$genres[-1]
+
+genres_columns <- sapply(names, function(name){
+  df <- data.frame(name = ifelse(grepl(name, edx$genres), 1, 0), genres = edx$genres)
+  
+})
+
+genres_df <- bind_rows(genres_columns, .id = "column_label")
+
+edx$gAction <- ifelse(grepl("Action", edx$genres), 1, 0)
+edx$gAdvent <- ifelse(grepl("Adventure", edx$genres), 1, 0)
+edx$gAnim <- ifelse(grepl("Animation", edx$genres), 1, 0)
+edx$gChild <- ifelse(grepl("Children", edx$genres), 1, 0)
+edx$gComedy <- ifelse(grepl("Comedy", edx$genres), 1, 0)
+edx$gFantasy <- ifelse(grepl("Fantasy", edx$genres), 1, 0)
+edx$gSciFi <- ifelse(grepl("Sci-Fi", edx$genres), 1, 0)
+edx$gImax <- ifelse(grepl("IMAX", edx$genres), 1, 0)
+edx$gDrama <- ifelse(grepl("Drama", edx$genres), 1, 0)
+edx$gHorror <- ifelse(grepl("Horror", edx$genres), 1, 0)
+edx$gMyst <- ifelse(grepl("Mystery", edx$genres), 1, 0)
+edx$gThrill <- ifelse(grepl("Thriller", edx$genres), 1, 0)
+edx$gCrime <- ifelse(grepl("Crime", edx$genres), 1, 0)
+edx$gRom <- ifelse(grepl("Romance", edx$genres), 1, 0)
+edx$gWar <- ifelse(grepl("War", edx$genres), 1, 0)
+edx$gWest <- ifelse(grepl("Western", edx$genres), 1, 0)
+edx$gMusic <- ifelse(grepl("Musical", edx$genres), 1, 0)
+edx$gDocu <- ifelse(grepl("Documentary", edx$genres), 1, 0)
+edx$gFilmN <- ifelse(grepl("Film-Noir", edx$genres), 1, 0)
+tibble(edx)
+
+# Let's run a multiple regression analysis on the training set to see if genre affects users' movie ratings.
+# This will statistically predict the movies' ratings based on the whether the movie belongs to 
+# a particular genre or not.
+
+genreFit <- lm(rating ~ gAction + gAdvent + gAnim + gChild + gComedy + gFantasy + 
+                 gSciFi + gImax + gDrama + gHorror + gMyst + gThrill + gCrime + 
+                 gRom + gWar + gWest + gMusic + gDocu + gFilmN, data=edx)
+summary(genreFit)
+
+# It turns out that all genres have a statistically significant effect on the movie rating.
+# You can see this by looking at the three stars "***" beside each coefficient,
+# which shows that the p-value is small enough for the coefficient to have a high significance.
+# Here is a graph of the estimated effects of each genre on the movie rating.
+
+
+# if(!require(dotwhisker)) install.packages("dotwhisker", repos = "http://cran.us.r-project.org")
+# library(dotwhisker)
+# 
+# dwplot(genreFit)
+
+genreFit
+modcoef <- summary(genreFit)[["coefficients"]]
+modcoef[order(modcoef[ , 1]), ] 
+
+
+# If we look closely at the results, we can see that movies of the Film-Noir genre are expected to score 
+# an estimated 0.399 points higher in ratings than the intercept (3.449).
+
+# Genres with the most positive effect are Film-Noir (0.399), Documentary (0.332), and Animation (0.298).
+
+
+# We also see that movies of the Children genre are expected to score an estimated 0.265 points lower 
+# in ratings than the intercept (3.449).
+
+# Genres with the most negative effect are Children (-0.265), Horror (-0.203), and Action (-0.090).
+
+
 # Try to find combinations which are most common to reduce variability of genres combinations
 # We will do it in form of correlation matrix, where numbers in cells shows how many times the specific genre appears in combination with 
 # another one
-
-genre_cor <- setNames(data.frame(matrix(ncol = 20, nrow = 20)), single_genres$genres) 
-genre_cor[1,1] <- 1
-
-genres_list <- single_genres$genres
-
-genres_combinations <- sapply(genres_list, function(x){
-  combination <- edx %>% filter(grepl(x, genres, fixed = TRUE)) %>% select(genres) %>%unique()
-  str_count(as.character(combination), genres_list)
-})
-
-rownames(genres_combinations) <- genres_list
-
-genres_combinations
-
-heatmap(x = genres_combinations, Colv=NA, Rowv=NA)
-
-pheatmap(genres_combinations, display_numbers = T, color = colorRampPalette(c('white','red'))(100), cluster_rows = F, cluster_cols = F, fontsize_number = 15)
-
-
-
-genres_combinations %>% mutate(genre = genres_list)
-
-genres_combinations %>% ggplot(aes(x = ))
-
-action_genres_combinations <- edx %>% filter(grepl(colnames(genre_cor)[2], genres, fixed = TRUE)) %>% select(genres) %>%unique()# %>% slice(1:100)
-
-str_count(as.character(action_genres_combinations), genres_list)
-
-
-
-grepl("Comedy", action_genres_combinations, fixed = TRUE)
-
-grepl(colnames(genre_cor)[2], edx$genres %>% filter())
-
-
-#colnames(genre_cor) <- single_genres$genres
-#change genres to another based on their correlations
-
-
-#Creating genres matrix
-mg_mat <- single_genres %>%
-  mutate(genre_value = 1) %>%
-  pivot_wider(movieId,names_from = genres,values_from=genre_value,
-              values_fill = 0,values_fn = mean)
-
-
-# how many moves have only one rating 
-edx %>% group_by(movieId) %>%
-  filter(n() == 1) %>% nrow()
-
-# top rated movies with more than one rating
-edx %>% group_by(movieId) %>% 
-  filter(n() > 1) %>% 
-  summarise(avg_rating = mean(rating), title = title) %>% 
-  arrange(desc(avg_rating)) %>% 
-  distinct() %>%
-  ungroup() %>%
-  select(-movieId) %>%
-  head(10)
+# 
+# genre_cor <- setNames(data.frame(matrix(ncol = 20, nrow = 20)), single_genres$genres) 
+# genre_cor[1,1] <- 1
+# 
+# genres_list <- single_genres$genres
+# 
+# genres_combinations <- sapply(genres_list, function(x){
+#   combination <- edx %>% filter(grepl(x, genres, fixed = TRUE)) %>% select(genres) %>%unique()
+#   str_count(as.character(combination), genres_list)
+# })
+# 
+# rownames(genres_combinations) <- genres_list
+# 
+# genres_combinations
+# 
+# heatmap(x = genres_combinations, Colv=NA, Rowv=NA)
+# 
+# pheatmap(genres_combinations, display_numbers = T, color = colorRampPalette(c('white','red'))(100), cluster_rows = F, cluster_cols = F, fontsize_number = 15)
+# 
+# 
+# 
+# genres_combinations %>% mutate(genre = genres_list)
+# 
+# genres_combinations %>% ggplot(aes(x = ))
+# 
+# action_genres_combinations <- edx %>% filter(grepl(colnames(genre_cor)[2], genres, fixed = TRUE)) %>% select(genres) %>%unique()# %>% slice(1:100)
+# 
+# str_count(as.character(action_genres_combinations), genres_list)
+# 
+# 
+# 
+# grepl("Comedy", action_genres_combinations, fixed = TRUE)
+# 
+# grepl(colnames(genre_cor)[2], edx$genres %>% filter())
+# 
+# 
+# #colnames(genre_cor) <- single_genres$genres
+# #change genres to another based on their correlations
+# 
+# 
+# #Creating genres matrix
+# mg_mat <- single_genres %>%
+#   mutate(genre_value = 1) %>%
+#   pivot_wider(movieId,names_from = genres,values_from=genre_value,
+#               values_fill = 0,values_fn = mean)
+# 
+# 
+# # how many moves have only one rating 
+# edx %>% group_by(movieId) %>%
+#   filter(n() == 1) %>% nrow()
+# 
+# # top rated movies with more than one rating
+# edx %>% group_by(movieId) %>% 
+#   filter(n() > 1) %>% 
+#   summarise(avg_rating = mean(rating), title = title) %>% 
+#   arrange(desc(avg_rating)) %>% 
+#   distinct() %>%
+#   ungroup() %>%
+#   select(-movieId) %>%
+#   head(10)
