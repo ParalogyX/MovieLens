@@ -1,10 +1,14 @@
 ###########################################################
-#                        LIBRARIES                        #
+#   HarvardX: PH125.9x  Data Science: Capstone            #
+#         Movielens recommendation system                 #
 ###########################################################
 
 # clear console output
 cat("\014")
 
+###########################################################
+#                        LIBRARIES                        #
+###########################################################
 
 # library installations if needed:
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
@@ -14,6 +18,7 @@ if(!require(lubridate)) install.packages("lubridate", repos = "http://cran.us.r-
 if(!require(Matrix)) install.packages("lubridate", repos = "http://cran.us.r-project.org")
 if(!require(stringr)) install.packages("stringr", repos = "http://cran.us.r-project.org")
 if(!require(pheatmap)) install.packages("pheatmap", repos = "http://cran.us.r-project.org")
+if(!require(corrplot)) install.packages("corrplot", repos = "http://cran.us.r-project.org")
 
 # loading libraries
 library(tidyverse)
@@ -23,10 +28,12 @@ library(lubridate)
 library(Matrix)
 library(stringr)
 library(pheatmap)
+library(corrplot)
 
 
 ###########################################################
 # Create edx set, validation set (final hold-out test set)#
+#       Code bellow is provided by edX platform           #
 ###########################################################
 
 # MovieLens 10M dataset:
@@ -86,7 +93,9 @@ edx <- rbind(edx, removed)
 
 rm(dl, ratings, movies, test_index, temp, movielens, removed)
 
-# Dimentions of edx and validation datasets:
+# code above was provided by edX platform
+
+# Dimensions of edx and validation datasets:
 dim(edx)
 dim(validation)
 
@@ -102,7 +111,6 @@ head(edx)
 str(edx)
 
 
-
 # rating analysis
 unique(edx$rating)
 summary(edx$rating)
@@ -116,7 +124,7 @@ edx %>% ggplot(aes(rating)) +
   ggtitle("Distibution of Movie ratings") +
   theme(plot.title = element_text(hjust = 0.5)) 
 
-#Comparing rating types
+#Comparing rating types: negative if <= mean, positive if > mean
 edx %>%
   mutate(rating_type = if_else(rating > mean(rating), "postitive",
                                "negative")) %>%
@@ -145,9 +153,9 @@ edx_unique_info$n_user_unique * edx_unique_info$n_Movie_unique
 nrow(edx)
 
 # how many ratings are missing?
-paste(nrow(edx) / (edx_unique_info$n_user_unique * edx_unique_info$n_Movie_unique) * 100, "%")
+paste(round(nrow(edx) / (edx_unique_info$n_user_unique * edx_unique_info$n_Movie_unique) * 100, 1), "%")
 
-
+# sample 100 users and 100 movies to visualize rated/unrated user-movie combinations
 users <- sample(unique(edx$userId), 100)
 sample_matrix <- edx %>% filter(userId %in% users) %>% 
   select(userId, movieId, rating) %>%
@@ -158,14 +166,14 @@ sample_matrix  %>%
   image(1:100, 1:100,. , xlab="Movies", ylab="Users", col = gray.colors(n = 2, start = 0, end = 0))
 abline(h=0:100+0.5, v=0:100+0.5, col = "grey")
 mtext(paste(sum(!is.na(sample_matrix)), 
-                " User/movie combinations are rated (", 
+                " User-movie combinations are rated (", 
                 round(sum(!is.na(sample_matrix))/sum(is.na(sample_matrix)) * 100, 1), " %) \n"))
-mtext(paste(sum(is.na(sample_matrix)), " User/movie combinations are unrated"))
-title("User/Movie combinations", line = 3)
+mtext(paste(sum(is.na(sample_matrix)), " User-movie combinations are unrated"))
+title("User-Movie combinations", line = 3, font.main = 1)
 
 
-
-rm(users, edx_unique_info)
+# remove variables which we don't need anymore
+rm(users, edx_unique_info, sample_matrix)
 
 # Movies analysis
 
@@ -187,6 +195,7 @@ edx %>% group_by(movieId) %>%
   select(-movieId) %>%
   head(10)
 
+# top 10 best and worst movies are not widely known by it's title
 
 # the distribution of number of ratings for movies
 edx %>% group_by(movieId) %>% 
@@ -196,6 +205,10 @@ edx %>% group_by(movieId) %>%
   ggtitle("Distribution of movies by no. of rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
+# we can see, that approximately half of movies have less than 100 ratings
+# about 125 movies have only one rating
+# that can explain our observation of top 10 movies: very high and very low average movie rating can be done based on very few reviews,
+# or even one review. This can't be reliable and will be taken in account when building a prediction model.
 
 # Plotting movie distribution by mean rating
 edx %>% group_by(movieId) %>% 
@@ -236,6 +249,7 @@ edx %>% group_by(movieId) %>%
 # We can see that the movie "Hellhounds on My Trail (1999)" also appeared in top rated movies table as it has average rating 5
 # But it is based only on a single rating, which cannot be reliable. We will account it later, during model building and tuning.
 
+# Users analysis
 
 # the distribution of number of ratings for users
 edx %>% group_by(userId) %>% 
@@ -244,6 +258,9 @@ edx %>% group_by(userId) %>%
   geom_histogram(bins = 100, col = "black") + scale_x_log10()
 
 
+# Similar to number of ratings of movies, many users rated only few movies
+# We can see, that about half of users rated less than approximately 65 movies
+# We will also take it in account for building model
 
 # Plotting user distribution by mean rating of user
 edx %>% group_by(userId) %>% 
@@ -308,14 +325,14 @@ seperate_year_released <- edx %>% group_by(year_released) %>%
 
 seperate_year_released %>% 
   ggplot(aes(year_released,year_released_rating)) + 
-  geom_point(color = "green", alpha = 0.1) +
-  geom_smooth(method = "loess", se = FALSE) +
-  ggtitle("Figure 5-Effect of released year on Rating") +
+  geom_point(alpha= 0.2, color = "blue", lwd = 1) +
+  geom_smooth(method = "loess", color = "red") +
+  ggtitle("Effect of released year on Rating") +
   xlab("Released year") +
   ylab("Rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
-#Movies in 1940-1960 have higher average rating 
+#Movies released in 1940-1960 have higher average rating 
 
 
 # Effect of rating year, month and day of the week on average rating
@@ -326,12 +343,15 @@ year_of_rating <- edx %>% group_by(year_rated) %>%
 
 year_of_rating %>% 
   ggplot(aes(year_rated,year_rated_rating)) + 
-  geom_point(color = "green", alpha = 0.1) +
-  geom_smooth(method = "loess", se = T) +
-  ggtitle("Figure 5-Effect of rated year on Rating") +
+  geom_point(alpha= 0.2, color = "blue", lwd = 1) +
+  geom_smooth(method = "loess", color = "red") +
+  ggtitle("Effect of rated year on Rating") +
   xlab("Rated year") +
   ylab("Rating") +
   theme(plot.title = element_text(hjust = 0.5))
+
+# first year when movie was rated is
+min(year_of_rating$year_rated)
 
 #month
 month_of_rating <- edx %>% group_by(month_rated) %>% 
@@ -339,9 +359,9 @@ month_of_rating <- edx %>% group_by(month_rated) %>%
 
 month_of_rating %>% 
   ggplot(aes(month_rated,month_rated_rating)) + 
-  geom_point(color = "green", alpha = 0.1) +
-  geom_smooth(method = "loess", se = T) +
-  ggtitle("Figure 5-Effect of rated month on Rating") +
+  geom_point(alpha= 0.2, color = "blue", lwd = 1) +
+  geom_smooth(method = "loess", color = "red") +
+  ggtitle("Effect of rated month on Rating") +
   xlab("Rated month") +
   ylab("Rating") +
   theme(plot.title = element_text(hjust = 0.5))
@@ -353,33 +373,42 @@ day_of_rating <- edx %>% group_by(day_rated) %>%
 
 day_of_rating %>% 
   ggplot(aes(day_rated, day_rated_rating)) + 
-  geom_point(color = "red") +
-  ggtitle("Figure 5-Effect of rated day of the week on Rating") +
-  xlab("Rated DoW") +
+  geom_point(color = "blue", lwd = 1) +
+  ggtitle("Effect of rated day of the week on Rating") +
+  xlab("Rated day of week") +
   ylab("Rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
-#Year and month of rating have effect on it (lower average rating after 2000 and lower rating during summer time)
-#DoW just slightly (min 3.5 on Sundays and max 3.53 on Saturdays)
+# Year and month of rating have effect on it (lower average rating after 2000 and lower rating during summer time)
+# DoW just slightly (min 3.5 on Sundays and max 3.53 on Saturdays)
 
+# remove variables which we don't need anymore
+rm(seperate_year_released, day_of_rating, month_of_rating, year_of_rating)
 
 # genres analysis
+
 n_distinct(edx$genres)
 
 head(edx$genres, 10)
 
 # We can see, that genres are combined in 797 different groups
 
+# check how many of them are unique
+edx %>% group_by(genres) %>%
+  summarise(number_of_ratings = n()) %>% arrange(number_of_ratings)%>% head(20)
+
+# as we can see, many genres combinations have very few ratings,
+# therefore we will split them to separate genres
+
 # Relation of type of genres on average of rating 
-single_genres <- edx %>% separate_rows(genres, sep = "\\|") %>%
+separated_genres <- edx %>% separate_rows(genres, sep = "\\|") %>%
   group_by(genres) %>%
   summarise(number_of_ratings = n(), avg_rating = mean(rating))
 
-single_genres %>% arrange(desc(avg_rating)) 
+separated_genres %>% arrange(desc(avg_rating)) 
 
-
-single_genres %>% 
-  arrange(desc(avg_rating)) %>% 
+# effect of separated genres on rating
+separated_genres %>% 
   ggplot(aes(x = reorder(genres, avg_rating), y = avg_rating)) +
   geom_col(color = "black" ) + 
   ggtitle("Average rating versus separated genres") +
@@ -388,148 +417,356 @@ single_genres %>%
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(axis.text.x = element_text(angle = 90 , hjust = 0.5))
 
+# number of separated genres appearing:
+separated_genres %>% 
+  ggplot(aes(x = reorder(genres, number_of_ratings), y = number_of_ratings)) +
+  geom_col(color = "black" ) + 
+  ggtitle("Number of separated genres") +
+  xlab("Genres") + 
+  ylab("Count") +
+  scale_y_continuous(breaks = seq(0,3*10^6,10^6),
+                     labels=c("0","1M","2M","3M")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 90 , hjust = 0.5))
+
+# only one movie without genre
 edx %>% filter(genres == "(no genres listed)") %>% group_by(movieId) %>% pull(title) %>% unique()
 
 
-genreList <- as.factor(edx$genres)
-levels(genreList)
+# do we want to use 797 different genres combinations for our prediction,
+# or it makes sense to split genre column to different ones?
+# getting list of all genres combinations from the dataset
+combined_genres <- unique(edx$genres)
 
+# genres names without "(no genres listed)"
+names <- separated_genres$genres[-1]
 
-# The two lines above gave me a quick way to see what genres are in the data.
-
-# Let's make columns to check for each genre.
-
-# Keep in mind we are merely making it easier for the computer to understand what
-# genres are involved in each review.
-
-# genres names without (no genres listed)
-names <- single_genres$genres[-1]
-
+# create list of dataframes for each genres combinations
 genres_columns <- sapply(names, function(name){
-  df <- data.frame(name = ifelse(grepl(name, edx$genres), 1, 0), genres = edx$genres)
+  df <- data.frame(name = ifelse(grepl(name, combined_genres), 1, 0))
   
 })
 
-genres_df <- bind_rows(genres_columns, .id = "column_label")
+# combine them to one dataframe
+genres_df <- bind_cols(genres_columns)
 
-edx$gAction <- ifelse(grepl("Action", edx$genres), 1, 0)
-edx$gAdvent <- ifelse(grepl("Adventure", edx$genres), 1, 0)
-edx$gAnim <- ifelse(grepl("Animation", edx$genres), 1, 0)
-edx$gChild <- ifelse(grepl("Children", edx$genres), 1, 0)
-edx$gComedy <- ifelse(grepl("Comedy", edx$genres), 1, 0)
-edx$gFantasy <- ifelse(grepl("Fantasy", edx$genres), 1, 0)
-edx$gSciFi <- ifelse(grepl("Sci-Fi", edx$genres), 1, 0)
-edx$gImax <- ifelse(grepl("IMAX", edx$genres), 1, 0)
-edx$gDrama <- ifelse(grepl("Drama", edx$genres), 1, 0)
-edx$gHorror <- ifelse(grepl("Horror", edx$genres), 1, 0)
-edx$gMyst <- ifelse(grepl("Mystery", edx$genres), 1, 0)
-edx$gThrill <- ifelse(grepl("Thriller", edx$genres), 1, 0)
-edx$gCrime <- ifelse(grepl("Crime", edx$genres), 1, 0)
-edx$gRom <- ifelse(grepl("Romance", edx$genres), 1, 0)
-edx$gWar <- ifelse(grepl("War", edx$genres), 1, 0)
-edx$gWest <- ifelse(grepl("Western", edx$genres), 1, 0)
-edx$gMusic <- ifelse(grepl("Musical", edx$genres), 1, 0)
-edx$gDocu <- ifelse(grepl("Documentary", edx$genres), 1, 0)
-edx$gFilmN <- ifelse(grepl("Film-Noir", edx$genres), 1, 0)
-tibble(edx)
+# assign correct names
+colnames(genres_df) <- names
 
-# Let's run a multiple regression analysis on the training set to see if genre affects users' movie ratings.
-# This will statistically predict the movies' ratings based on the whether the movie belongs to 
-# a particular genre or not.
+# check if we can remove some non indicative genres
+# build correlation matrix
 
-genreFit <- lm(rating ~ gAction + gAdvent + gAnim + gChild + gComedy + gFantasy + 
-                 gSciFi + gImax + gDrama + gHorror + gMyst + gThrill + gCrime + 
-                 gRom + gWar + gWest + gMusic + gDocu + gFilmN, data=edx)
-summary(genreFit)
+corrplot(cor(genres_df %>% select(-genres)), method="color", type="upper")
 
-# It turns out that all genres have a statistically significant effect on the movie rating.
-# You can see this by looking at the three stars "***" beside each coefficient,
-# which shows that the p-value is small enough for the coefficient to have a high significance.
-# Here is a graph of the estimated effects of each genre on the movie rating.
+# some meaningful correlation only between genres Children and Animation
+# other genres are relatively independent from each other
+
+# remove variables, which will not be used further
+rm(genres_columns, separated_genres, combined_genres, names)
+
+###########################################################
+#                   Data preparation                      #
+###########################################################
+
+# in order to build, train and verify prediction model,
+# we need to prepare our dataset
+# column timestamp already was replaced by columns 
+# "year_rated", "month_rated" and "day_rated"
 
 
-# if(!require(dotwhisker)) install.packages("dotwhisker", repos = "http://cran.us.r-project.org")
-# library(dotwhisker)
-# 
-# dwplot(genreFit)
-
-genreFit
-modcoef <- summary(genreFit)[["coefficients"]]
-modcoef[order(modcoef[ , 1]), ] 
 
 
-# If we look closely at the results, we can see that movies of the Film-Noir genre are expected to score 
-# an estimated 0.399 points higher in ratings than the intercept (3.449).
+# our dataset is large enough therefore we can use train-test split (or hold out) approach for cross-validation
+# before model building, training and selection we need to split our dataset to train and test subsets:
+# test set will be 30% of all the data
 
-# Genres with the most positive effect are Film-Noir (0.399), Documentary (0.332), and Animation (0.298).
+test_index <- createDataPartition(y = edx$rating, times = 1, p = 0.3, list = FALSE)
+train_set <- edx[-test_index,]
+temp <- edx[test_index,]
+
+# Make sure userId and movieId in test set are also in train set
+test_set <- temp %>% 
+  semi_join(train_set, by = "movieId") %>%
+  semi_join(train_set, by = "userId")
+
+# Add rows removed from test set back into train set
+removed <- anti_join(temp, test_set)
+train_set <- rbind(train_set, removed)
+
+# remove temporary variables
+rm(test_index, temp, removed)
+
+# check dimensions 
+dim(train_set)
+dim(test_set)
+
+###########################################################
+#         Model building, training and selection          #
+###########################################################
+
+# function to estimate RMSE
+RMSE <- function(true_ratings, predicted_ratings){
+  sqrt(mean((true_ratings - predicted_ratings)^2))
+  }
 
 
-# We also see that movies of the Children genre are expected to score an estimated 0.265 points lower 
-# in ratings than the intercept (3.449).
+# first model: naive model, predicts always average rating
+mu <- mean(train_set$rating)
+naive_rmse <- RMSE(test_set$rating, mu)
+naive_rmse
+rmse_results <- data.frame(method = "Just the average", RMSE = naive_rmse)
 
-# Genres with the most negative effect are Children (-0.265), Horror (-0.203), and Action (-0.090).
+# include movie bias (we saw, that some movies are more popular than others)
+# bias is the term for effect
+movie_avgs <- train_set %>% 
+  group_by(movieId) %>% 
+  summarize(b_i = mean(rating - mu))
+
+movie_avgs %>% ggplot(aes(b_i)) +
+  geom_histogram(bins = 10,col = "black") +
+  ylab("Count") +
+  xlab("Movie bias") +
+  ggtitle("Distribution of movies biases") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+predicted_ratings <- mu + test_set %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  .$b_i
+
+model_1_rmse <- RMSE(predicted_ratings, test_set$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method="Movie Effect Model",
+                                     RMSE = model_1_rmse ))
+rmse_results
 
 
-# Try to find combinations which are most common to reduce variability of genres combinations
-# We will do it in form of correlation matrix, where numbers in cells shows how many times the specific genre appears in combination with 
-# another one
-# 
-# genre_cor <- setNames(data.frame(matrix(ncol = 20, nrow = 20)), single_genres$genres) 
-# genre_cor[1,1] <- 1
-# 
-# genres_list <- single_genres$genres
-# 
-# genres_combinations <- sapply(genres_list, function(x){
-#   combination <- edx %>% filter(grepl(x, genres, fixed = TRUE)) %>% select(genres) %>%unique()
-#   str_count(as.character(combination), genres_list)
-# })
-# 
-# rownames(genres_combinations) <- genres_list
-# 
-# genres_combinations
-# 
-# heatmap(x = genres_combinations, Colv=NA, Rowv=NA)
-# 
-# pheatmap(genres_combinations, display_numbers = T, color = colorRampPalette(c('white','red'))(100), cluster_rows = F, cluster_cols = F, fontsize_number = 15)
-# 
-# 
-# 
-# genres_combinations %>% mutate(genre = genres_list)
-# 
-# genres_combinations %>% ggplot(aes(x = ))
-# 
-# action_genres_combinations <- edx %>% filter(grepl(colnames(genre_cor)[2], genres, fixed = TRUE)) %>% select(genres) %>%unique()# %>% slice(1:100)
-# 
-# str_count(as.character(action_genres_combinations), genres_list)
-# 
-# 
-# 
-# grepl("Comedy", action_genres_combinations, fixed = TRUE)
-# 
-# grepl(colnames(genre_cor)[2], edx$genres %>% filter())
-# 
-# 
-# #colnames(genre_cor) <- single_genres$genres
-# #change genres to another based on their correlations
-# 
-# 
-# #Creating genres matrix
-# mg_mat <- single_genres %>%
-#   mutate(genre_value = 1) %>%
-#   pivot_wider(movieId,names_from = genres,values_from=genre_value,
-#               values_fill = 0,values_fn = mean)
-# 
-# 
-# # how many moves have only one rating 
-# edx %>% group_by(movieId) %>%
-#   filter(n() == 1) %>% nrow()
-# 
-# # top rated movies with more than one rating
-# edx %>% group_by(movieId) %>% 
-#   filter(n() > 1) %>% 
-#   summarise(avg_rating = mean(rating), title = title) %>% 
-#   arrange(desc(avg_rating)) %>% 
-#   distinct() %>%
-#   ungroup() %>%
-#   select(-movieId) %>%
-#   head(10)
+# include user bias (it is based on our observation, that some users are cranky and others love different movies)
+user_avgs <- train_set %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  group_by(userId) %>% 
+  summarize(b_u = mean(rating - mu - b_i))
+
+user_avgs %>% ggplot(aes(b_u)) +
+  geom_histogram(bins = 10,col = "black") +
+  ylab("Count") +
+  xlab("User bias") +
+  ggtitle("Distribution of users biases") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+predicted_ratings <- test_set %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  left_join(user_avgs, by='userId') %>%
+  mutate(pred = mu + b_i + b_u) %>%
+  .$pred
+
+model_2_rmse <- RMSE(predicted_ratings, test_set$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method="Movie + User Effect Model",
+                                     RMSE = model_2_rmse ))
+rmse_results
+
+# include released year
+year_avgs <- train_set %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  left_join(user_avgs, by='userId') %>%
+  group_by(year_released) %>% 
+  summarize(b_y = mean(rating - mu - b_i - b_u))
+
+year_avgs %>% ggplot(aes(b_y)) +
+  geom_histogram(bins = 10,col = "black") +
+  ylab("Count") +
+  xlab("Released year bias") +
+  ggtitle("Distribution of released year biases") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+predicted_ratings <- test_set %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  left_join(user_avgs, by='userId') %>%
+  left_join(year_avgs, by='year_released') %>%
+  mutate(pred = mu + b_i + b_u + b_y) %>%
+  .$pred
+
+model_3_rmse <- RMSE(predicted_ratings, test_set$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method="Movie + User + Year Effect Model",
+                                     RMSE = model_3_rmse ))
+rmse_results
+
+# released year didn't give much improvement
+
+
+# include genre
+genre_avgs <- train_set %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  left_join(user_avgs, by='userId') %>%
+  left_join(year_avgs, by='year_released') %>%
+  group_by(genres) %>% 
+  summarize(b_g = mean(rating - mu - b_i - b_u - b_y))
+
+genre_avgs %>% ggplot(aes(b_g)) +
+  geom_histogram(bins = 30,col = "black") +
+  ylab("Count") +
+  xlab("Genre bias") +
+  ggtitle("Distribution of genres biases") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+predicted_ratings <- test_set %>% 
+  left_join(movie_avgs, by='movieId') %>%
+  left_join(user_avgs, by='userId') %>%
+  left_join(year_avgs, by='year_released') %>%
+  left_join(genre_avgs, by='genres') %>%
+  mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
+  .$pred
+
+model_4_rmse <- RMSE(predicted_ratings, test_set$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method="Movie + User + Year + Genre Effect Model",
+                                     RMSE = model_4_rmse ))
+rmse_results
+
+# remember that some movies were rated just few times and some users rated only few movies,
+# we need to regularize our model by implementing penalty large estimates which are formed using small sample sizes
+
+lambdas <- seq(0, 10, 0.25)
+rmses <- sapply(lambdas, function(l){
+  
+  mu <- mean(train_set$rating)
+  
+  b_i <- train_set %>% 
+    group_by(movieId) %>%
+    summarize(b_i = sum(rating - mu)/(n()+l))
+  
+  b_u <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    group_by(userId) %>%
+    summarize(b_u = sum(rating - b_i - mu)/(n()+l))
+  
+  b_y <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    left_join(b_u, by="userId") %>%
+    group_by(year_released) %>%
+    summarize(b_y = sum(rating - b_i - b_u - mu)/(n()+l))
+  
+  b_g <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    left_join(b_u, by="userId") %>%
+    left_join(b_y, by="year_released") %>%
+    group_by(genres) %>%
+    summarize(b_g = sum(rating - b_i - b_u - b_y - mu)/(n()+l))
+  
+  predicted_ratings <- 
+    test_set %>% 
+    left_join(b_i, by = "movieId") %>%
+    left_join(b_u, by = "userId") %>%
+    left_join(b_y, by = "year_released") %>%
+    left_join(b_g, by = "genres") %>%
+    mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
+    pull(pred)
+  
+  return(RMSE(predicted_ratings, test_set$rating))
+})
+
+qplot(lambdas, rmses)  
+lambda <- lambdas[which.min(rmses)]
+min(rmses)
+lambda
+
+# add regularized model
+
+b_i <- train_set %>% 
+  group_by(movieId) %>%
+  summarize(b_i = sum(rating - mu)/(n()+lambda))
+
+
+b_u <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = sum(rating - b_i - mu)/(n()+lambda))
+
+b_y <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  group_by(year_released) %>%
+  summarize(b_y = sum(rating - b_i - b_u - mu)/(n()+lambda))
+
+b_g <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  left_join(b_y, by="year_released") %>%
+  group_by(genres) %>%
+  summarize(b_g = sum(rating - b_i - b_u - b_y - mu)/(n()+lambda))
+
+
+predicted_ratings <- test_set %>% 
+  left_join(b_i, by='movieId') %>%
+  left_join(b_u, by='userId') %>%
+  left_join(b_y, by='year_released') %>%
+  left_join(b_g, by='genres') %>%
+  mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
+  .$pred
+
+model_5_rmse <- RMSE(predicted_ratings, test_set$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method="Regularized Movie + User + Year + Genre Effect Model",
+                                     RMSE = model_5_rmse ))
+rmse_results
+
+
+
+# different lambda for different biases:
+#!!!!!!!!!!!!!! CODE BELOW TAKES ABOUT 30 MINUTES TO RUN !!!!!!!!!!!!!!!!!!
+
+lambda_i <- seq(0, 10, 0.25)
+lambda_u <- seq(0, 10, 0.25)
+lambda_y <- seq(0, 10, 0.25)
+lambda_g <- seq(0, 10, 0.25)
+lambda_grid <- expand.grid(lambda_i, lambda_u, lambda_y, lambda_g)
+colnames(lambda_grid) <- c("lambda_i", "lambda_u", "lambda_y", "lambda_g")
+
+rmses <- apply(lambda_grid, MARGIN = 1, function(l){
+
+  mu <- mean(train_set$rating)
+  
+  b_i <- train_set %>% 
+    group_by(movieId) %>%
+    summarize(b_i = as.numeric(sum(rating - mu)/(n()+l["lambda_i"])))
+  
+  b_u <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    group_by(userId) %>%
+    summarize(b_u = as.numeric(sum(rating - b_i - mu)/(n()+l["lambda_u"])))
+  
+  b_y <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    left_join(b_u, by="userId") %>%
+    group_by(year_released) %>%
+    summarize(b_y = as.numeric(sum(rating - b_i - b_u - mu)/(n()+l["lambda_y"])))
+  
+  b_g <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    left_join(b_u, by="userId") %>%
+    left_join(b_y, by="year_released") %>%
+    group_by(genres) %>%
+    summarize(b_g = as.numeric(sum(rating - b_i - b_u - b_y - mu)/(n()+l["lambda_g"])))
+  
+  
+  predicted_ratings <- 
+    test_set %>% 
+    left_join(b_i, by = "movieId") %>%
+    left_join(b_u, by = "userId") %>%
+    left_join(b_y, by = "year_released") %>%
+    left_join(b_g, by = "genres") %>%
+    mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
+    pull(pred)
+  
+  return(RMSE(predicted_ratings, test_set$rating))
+})
+
+best_lambda_set <- lambda_grid[which.min(rmses)]
+min(rmses)
+
+
+qplot(lambdas, rmses)  
+lambda <- lambdas[which.min(rmses)]
+min(rmses)
+lambda
