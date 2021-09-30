@@ -456,7 +456,7 @@ colnames(genres_df) <- names
 # check if we can remove some non indicative genres
 # build correlation matrix
 
-corrplot(cor(genres_df %>% select(-genres)), method="color", type="upper")
+corrplot(cor(genres_df), method="color", type="upper")
 
 # some meaningful correlation only between genres Children and Animation
 # other genres are relatively independent from each other
@@ -714,59 +714,244 @@ rmse_results
 
 
 # different lambda for different biases:
-#!!!!!!!!!!!!!! CODE BELOW TAKES ABOUT 30 MINUTES TO RUN !!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!! CODE BELOW RUNS FOREVER !!!!!!!!!!!!!!!!!!
 
-lambda_i <- seq(0, 10, 0.25)
-lambda_u <- seq(0, 10, 0.25)
-lambda_y <- seq(0, 10, 0.25)
-lambda_g <- seq(0, 10, 0.25)
-lambda_grid <- expand.grid(lambda_i, lambda_u, lambda_y, lambda_g)
-colnames(lambda_grid) <- c("lambda_i", "lambda_u", "lambda_y", "lambda_g")
+# lambda_i <- seq(3, 8, 0.5)
+# lambda_u <- seq(3, 8, 0.5)
+# lambda_y <- seq(3, 8, 0.5)
+# lambda_g <- seq(3, 8, 0.5)
+# lambda_grid <- expand.grid(lambda_i, lambda_u, lambda_y, lambda_g)
+# colnames(lambda_grid) <- c("lambda_i", "lambda_u", "lambda_y", "lambda_g")
+# 
+# rmses <- apply(lambda_grid, MARGIN = 1, function(l){
+# 
+#   mu <- mean(train_set$rating)
+#   
+#   b_i <- train_set %>% 
+#     group_by(movieId) %>%
+#     summarize(b_i = as.numeric(sum(rating - mu)/(n()+l["lambda_i"])))
+#   
+#   b_u <- train_set %>% 
+#     left_join(b_i, by="movieId") %>%
+#     group_by(userId) %>%
+#     summarize(b_u = as.numeric(sum(rating - b_i - mu)/(n()+l["lambda_u"])))
+#   
+#   b_y <- train_set %>% 
+#     left_join(b_i, by="movieId") %>%
+#     left_join(b_u, by="userId") %>%
+#     group_by(year_released) %>%
+#     summarize(b_y = as.numeric(sum(rating - b_i - b_u - mu)/(n()+l["lambda_y"])))
+#   
+#   b_g <- train_set %>% 
+#     left_join(b_i, by="movieId") %>%
+#     left_join(b_u, by="userId") %>%
+#     left_join(b_y, by="year_released") %>%
+#     group_by(genres) %>%
+#     summarize(b_g = as.numeric(sum(rating - b_i - b_u - b_y - mu)/(n()+l["lambda_g"])))
+#   
+#   
+#   predicted_ratings <- 
+#     test_set %>% 
+#     left_join(b_i, by = "movieId") %>%
+#     left_join(b_u, by = "userId") %>%
+#     left_join(b_y, by = "year_released") %>%
+#     left_join(b_g, by = "genres") %>%
+#     mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
+#     pull(pred)
+#   
+#   return(RMSE(predicted_ratings, test_set$rating))
+# })
+# 
+# best_lambda_set <- lambda_grid[which.min(rmses)]
+# min(rmses)
 
-rmses <- apply(lambda_grid, MARGIN = 1, function(l){
+# find different biases separately:
 
-  mu <- mean(train_set$rating)
-  
+lambdas <- seq(0, 10, 0.25)
+mu <- mean(train_set$rating)
+
+# best lambda for movie effect:
+rmses <- sapply(lambdas, function(l){
+
   b_i <- train_set %>% 
     group_by(movieId) %>%
-    summarize(b_i = as.numeric(sum(rating - mu)/(n()+l["lambda_i"])))
-  
-  b_u <- train_set %>% 
-    left_join(b_i, by="movieId") %>%
-    group_by(userId) %>%
-    summarize(b_u = as.numeric(sum(rating - b_i - mu)/(n()+l["lambda_u"])))
-  
-  b_y <- train_set %>% 
-    left_join(b_i, by="movieId") %>%
-    left_join(b_u, by="userId") %>%
-    group_by(year_released) %>%
-    summarize(b_y = as.numeric(sum(rating - b_i - b_u - mu)/(n()+l["lambda_y"])))
-  
-  b_g <- train_set %>% 
-    left_join(b_i, by="movieId") %>%
-    left_join(b_u, by="userId") %>%
-    left_join(b_y, by="year_released") %>%
-    group_by(genres) %>%
-    summarize(b_g = as.numeric(sum(rating - b_i - b_u - b_y - mu)/(n()+l["lambda_g"])))
-  
+    summarize(b_i = sum(rating - mu)/(n()+l))
   
   predicted_ratings <- 
     test_set %>% 
     left_join(b_i, by = "movieId") %>%
+    mutate(pred = mu + b_i) %>%
+    pull(pred)
+  
+  return(RMSE(predicted_ratings, test_set$rating))
+})
+qplot(lambdas, rmses)  
+lambda_movie <- lambdas[which.min(rmses)]
+min(rmses)
+lambda_movie
+
+
+# best lambda for user effect:
+rmses <- sapply(lambdas, function(l){
+  
+  b_u <- train_set %>% 
+    group_by(userId) %>%
+    summarize(b_u = sum(rating - mu)/(n()+l))
+  
+  predicted_ratings <- 
+    test_set %>% 
     left_join(b_u, by = "userId") %>%
+    mutate(pred = mu + b_u) %>%
+    pull(pred)
+  
+  return(RMSE(predicted_ratings, test_set$rating))
+})
+qplot(lambdas, rmses)  
+lambda_user<- lambdas[which.min(rmses)]
+min(rmses)
+lambda_user
+
+lambdas <- seq(47, 52, 0.25)
+# best lambda for released year effect:
+rmses <- sapply(lambdas, function(l){
+
+  b_y <- train_set %>% 
+    group_by(year_released) %>%
+    summarize(b_y = sum(rating - mu)/(n()+l))
+  
+  predicted_ratings <- 
+    test_set %>% 
     left_join(b_y, by = "year_released") %>%
+    mutate(pred = mu + b_y) %>%
+    pull(pred)
+  
+  return(RMSE(predicted_ratings, test_set$rating))
+})
+qplot(lambdas, rmses)  
+lambda_year <- lambdas[which.min(rmses)]
+min(rmses)
+lambda_year
+
+lambdas <- seq(0, 10, 0.25)
+# best lambda for genre effect:
+rmses <- sapply(lambdas, function(l){
+  
+  b_g <- train_set %>% 
+    group_by(genres) %>%
+    summarize(b_g = sum(rating - mu)/(n()+l))
+  
+  predicted_ratings <- 
+    test_set %>% 
     left_join(b_g, by = "genres") %>%
-    mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
+    mutate(pred = mu + b_g) %>%
     pull(pred)
   
   return(RMSE(predicted_ratings, test_set$rating))
 })
 
-best_lambda_set <- lambda_grid[which.min(rmses)]
-min(rmses)
-
 
 qplot(lambdas, rmses)  
-lambda <- lambdas[which.min(rmses)]
+lambda_genre <- lambdas[which.min(rmses)]
 min(rmses)
-lambda
+lambda_genre
+
+best_lambda_set <- c(lambda_movie, lambda_user, lambda_year, lambda_genre)
+
+# fit regularized model with best lambdas for each predictor
+b_i <- train_set %>% 
+  group_by(movieId) %>%
+  summarize(b_i = as.numeric(sum(rating - mu)/(n()+best_lambda_set[1])))
+
+
+b_u <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = as.numeric(sum(rating - b_i - mu)/(n()+best_lambda_set[2])))
+
+b_y <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  group_by(year_released) %>%
+  summarize(b_y = as.numeric(sum(rating - b_i - b_u - mu)/(n()+best_lambda_set[3])))
+
+b_g <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  left_join(b_y, by="year_released") %>%
+  group_by(genres) %>%
+  summarize(b_g = as.numeric(sum(rating - b_i - b_u - b_y - mu)/(n()+best_lambda_set[4])))
+
+
+predicted_ratings <- test_set %>% 
+  left_join(b_i, by='movieId') %>%
+  left_join(b_u, by='userId') %>%
+  left_join(b_y, by='year_released') %>%
+  left_join(b_g, by='genres') %>%
+  mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
+  .$pred
+
+model_6_rmse <- RMSE(predicted_ratings, test_set$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method="Separately regularized Movie + User + Year + Genre Effect Model",
+                                     RMSE = model_6_rmse ))
+rmse_results
+
+
+
+
+# include rating year and month
+b_i <- train_set %>% 
+  group_by(movieId) %>%
+  summarize(b_i = sum(rating - mu)/(n()+lambda))
+
+
+b_u <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = sum(rating - b_i - mu)/(n()+lambda))
+
+b_y <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  group_by(year_released) %>%
+  summarize(b_y = sum(rating - b_i - b_u - mu)/(n()+lambda))
+
+b_g <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  left_join(b_y, by="year_released") %>%
+  group_by(genres) %>%
+  summarize(b_g = sum(rating - b_i - b_u - b_y - mu)/(n()+lambda))
+
+b_ry <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  left_join(b_y, by="year_released") %>%
+  left_join(b_g, by="genres") %>%
+  group_by(year_rated) %>%
+  summarize(b_ry = sum(rating - b_i - b_u - b_y - b_g - mu)/(n()+lambda))
+
+b_rm <- train_set %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  left_join(b_y, by="year_released") %>%
+  left_join(b_g, by="genres") %>%
+  left_join(b_ry, by="year_rated") %>%
+  group_by(month_rated) %>%
+  summarize(b_rm = sum(rating - b_i - b_u - b_y - b_g - b_ry - mu)/(n()+lambda))
+
+predicted_ratings <- test_set %>% 
+  left_join(b_i, by='movieId') %>%
+  left_join(b_u, by='userId') %>%
+  left_join(b_y, by='year_released') %>%
+  left_join(b_g, by='genres') %>%
+  left_join(b_ry, by='year_rated') %>%
+  left_join(b_rm, by='month_rated') %>%
+  mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
+  .$pred
+
+model_7_rmse <- RMSE(predicted_ratings, test_set$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method="Regularized Movie + User + Year + Genre + rating year and month effect Model",
+                                     RMSE = model_7_rmse ))
+rmse_results
