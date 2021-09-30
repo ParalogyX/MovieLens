@@ -899,7 +899,81 @@ rmse_results
 
 
 
-# include rating year and month
+
+model_7_rmse <- RMSE(predicted_ratings, test_set$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data_frame(method="Regularized Movie + User + Year + Genre + rating year and month effect Model",
+                                     RMSE = model_7_rmse ))
+rmse_results
+
+
+
+# regularisation of all predictors
+lambdas <- seq(0, 10, 0.25)
+rmses <- sapply(lambdas, function(l){
+
+  b_i <- train_set %>% 
+    group_by(movieId) %>%
+    summarize(b_i = sum(rating - mu)/(n()+l))
+  
+  b_u <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    group_by(userId) %>%
+    summarize(b_u = sum(rating - b_i - mu)/(n()+l))
+  
+  b_y <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    left_join(b_u, by="userId") %>%
+    group_by(year_released) %>%
+    summarize(b_y = sum(rating - b_i - b_u - mu)/(n()+l))
+  
+  b_g <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    left_join(b_u, by="userId") %>%
+    left_join(b_y, by="year_released") %>%
+    group_by(genres) %>%
+    summarize(b_g = sum(rating - b_i - b_u - b_y - mu)/(n()+l))
+  
+  b_ry <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    left_join(b_u, by="userId") %>%
+    left_join(b_y, by="year_released") %>%
+    left_join(b_g, by="genres") %>%
+    group_by(year_rated) %>%
+    summarize(b_ry = sum(rating - b_i - b_u - b_y - b_g - mu)/(n()+l))
+  
+  b_rm <- train_set %>% 
+    left_join(b_i, by="movieId") %>%
+    left_join(b_u, by="userId") %>%
+    left_join(b_y, by="year_released") %>%
+    left_join(b_g, by="genres") %>%
+    left_join(b_ry, by="year_rated") %>%
+    group_by(month_rated) %>%
+    summarize(b_rm = sum(rating - b_i - b_u - b_y - b_g - b_ry - mu)/(n()+l))
+  
+  
+  predicted_ratings <- 
+    test_set %>% 
+    left_join(b_i, by = "movieId") %>%
+    left_join(b_u, by = "userId") %>%
+    left_join(b_y, by = "year_released") %>%
+    left_join(b_g, by = "genres") %>%
+    left_join(b_ry, by= "year_rated") %>%
+    left_join(b_rm, by= "month_rated") %>%
+    mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
+    pull(pred)
+  
+  return(RMSE(predicted_ratings, test_set$rating))
+})
+
+qplot(lambdas, rmses)  
+lambda <- lambdas[which.min(rmses)]
+min(rmses)
+lambda
+
+
+# add regularized model
+
 b_i <- train_set %>% 
   group_by(movieId) %>%
   summarize(b_i = sum(rating - mu)/(n()+lambda))
@@ -929,7 +1003,7 @@ b_ry <- train_set %>%
   left_join(b_y, by="year_released") %>%
   left_join(b_g, by="genres") %>%
   group_by(year_rated) %>%
-  summarize(b_ry = sum(rating - b_i - b_u - b_y - b_g - mu)/(n()+lambda))
+  summarize(b_ry = sum(rating - b_i - b_u - b_y - b_g - mu)/(n()+l))
 
 b_rm <- train_set %>% 
   left_join(b_i, by="movieId") %>%
@@ -938,20 +1012,91 @@ b_rm <- train_set %>%
   left_join(b_g, by="genres") %>%
   left_join(b_ry, by="year_rated") %>%
   group_by(month_rated) %>%
-  summarize(b_rm = sum(rating - b_i - b_u - b_y - b_g - b_ry - mu)/(n()+lambda))
+  summarize(b_rm = sum(rating - b_i - b_u - b_y - b_g - b_ry - mu)/(n()+l))
 
-predicted_ratings <- test_set %>% 
-  left_join(b_i, by='movieId') %>%
-  left_join(b_u, by='userId') %>%
-  left_join(b_y, by='year_released') %>%
-  left_join(b_g, by='genres') %>%
-  left_join(b_ry, by='year_rated') %>%
-  left_join(b_rm, by='month_rated') %>%
+predicted_ratings <- 
+  test_set %>% 
+  left_join(b_i, by = "movieId") %>%
+  left_join(b_u, by = "userId") %>%
+  left_join(b_y, by = "year_released") %>%
+  left_join(b_g, by = "genres") %>%
+  left_join(b_ry, by= "year_rated") %>%
+  left_join(b_rm, by= "month_rated") %>%
   mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
-  .$pred
+  pull(pred)
 
 model_7_rmse <- RMSE(predicted_ratings, test_set$rating)
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Regularized Movie + User + Year + Genre + rating year and month effect Model",
+                          data.frame(method="Regularized Movie + User + Year + Genre + rating year and month effect Model",
                                      RMSE = model_7_rmse ))
 rmse_results
+
+
+
+# fit with best lambda on a complete edx dataset
+b_i <- edx %>% 
+  group_by(movieId) %>%
+  summarize(b_i = sum(rating - mu)/(n()+lambda))
+
+
+b_u <- edx %>% 
+  left_join(b_i, by="movieId") %>%
+  group_by(userId) %>%
+  summarize(b_u = sum(rating - b_i - mu)/(n()+lambda))
+
+b_y <- edx %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  group_by(year_released) %>%
+  summarize(b_y = sum(rating - b_i - b_u - mu)/(n()+lambda))
+
+b_g <- edx %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  left_join(b_y, by="year_released") %>%
+  group_by(genres) %>%
+  summarize(b_g = sum(rating - b_i - b_u - b_y - mu)/(n()+lambda))
+
+b_ry <- edx %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  left_join(b_y, by="year_released") %>%
+  left_join(b_g, by="genres") %>%
+  group_by(year_rated) %>%
+  summarize(b_ry = sum(rating - b_i - b_u - b_y - b_g - mu)/(n()+l))
+
+b_rm <- edx %>% 
+  left_join(b_i, by="movieId") %>%
+  left_join(b_u, by="userId") %>%
+  left_join(b_y, by="year_released") %>%
+  left_join(b_g, by="genres") %>%
+  left_join(b_ry, by="year_rated") %>%
+  group_by(month_rated) %>%
+  summarize(b_rm = sum(rating - b_i - b_u - b_y - b_g - b_ry - mu)/(n()+l))
+
+
+###########################################################
+#            Final test on validation dataset             #
+###########################################################
+
+# add columns year_released, year_rated and month_rated from timestamp
+validation <- validation %>% 
+  mutate(year_released = as.numeric(str_sub(title,-5,-2)), 
+         year_rated = year(as_datetime(timestamp)),
+         month_rated = month(as_datetime(timestamp)))
+
+# predict ratings in validation set using biases
+predicted_ratings <- 
+  validation %>% 
+  left_join(b_i, by = "movieId") %>%
+  left_join(b_u, by = "userId") %>%
+  left_join(b_y, by = "year_released") %>%
+  left_join(b_g, by = "genres") %>%
+  left_join(b_ry, by= "year_rated") %>%
+  left_join(b_rm, by= "month_rated") %>%
+  mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
+  pull(pred)
+
+RMSE(predicted_ratings, validation$rating)
+
+# 0.864114 < 0.8649
