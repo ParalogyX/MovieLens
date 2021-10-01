@@ -838,6 +838,142 @@ rmse_results <- bind_rows(rmse_results,
 rmse_results
 
 
+model_df <- train_set %>% 
+  left_join(b_i, by = "movieId") %>%
+  left_join(b_u, by = "userId") %>%
+  left_join(b_y, by = "year_released") %>%
+  left_join(b_g, by = "genres") %>%
+  left_join(b_ry, by = "year_rated") %>%
+  left_join(b_rm, by = "month_rated")
+
+
+library(caret)
+train_lm <- train(rating ~ b_i + b_u + b_y + b_g, method = "lm", data = model_df)
+
+test_df <- test_set %>% 
+  left_join(b_i, by = "movieId") %>%
+  left_join(b_u, by = "userId") %>%
+  left_join(b_y, by = "year_released") %>%
+  left_join(b_g, by = "genres") %>%
+  left_join(b_ry, by = "year_rated") %>%
+  left_join(b_rm, by = "month_rated")
+
+y_hat_lm <- predict(train_lm, test_df, type = "raw")
+y_hat_lm <- ifelse(y_hat_lm > 5, 5, ifelse(y_hat_lm < 0.5, 0.5, y_hat_lm))
+RMSE(y_hat_lm, test_set$rating)
+
+
+
+# try knn, rf and loess with default parameters
+
+# first read about different models for your data
+# and/or test on small subset
+
+# train_knn <- train(rating ~ b_i + b_u + b_y + b_g, method = "knn", data = model_df)
+# train_rf<- train(rating ~ b_i + b_u + b_y + b_g, method = "rf", data = model_df)
+# train_loess <- train(rating ~ b_i + b_u + b_y + b_g, method = "gamLoess", data = model_df)
+# 
+# y_hat_knn <- predict(train_knn, test_df, type = "raw")
+# y_hat_knn <- ifelse(y_hat_knn > 5, 5, ifelse(y_hat_knn < 0.5, 0.5, y_hat_knn))
+# 
+# y_hat_rf <- predict(train_rf, test_df, type = "raw")
+# y_hat_rf <- ifelse(y_hat_rf > 5, 5, ifelse(y_hat_rf < 0.5, 0.5, y_hat_rf))
+# 
+# y_hat_loess <- predict(train_loess, test_df, type = "raw")
+# y_hat_loess <- ifelse(y_hat_loess > 5, 5, ifelse(y_hat_loess < 0.5, 0.5, y_hat_loess))
+# 
+# RMSE(y_hat_knn, test_set$rating)
+# RMSE(y_hat_rf, test_set$rating)
+# RMSE(y_hat_loess, test_set$rating)
+
+
+
+
+
+
+# trying recosystem
+library(recosystem)
+
+r = Reco()
+
+
+reco_train <- train_set %>%
+  left_join(b_i, by = "movieId") %>%
+  left_join(b_u, by = "userId") %>%
+  left_join(b_y, by = "year_released") %>%
+  left_join(b_g, by = "genres") %>%
+  left_join(b_ry, by= "year_rated") %>%
+  left_join(b_rm, by= "month_rated") %>%
+  mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
+  select(userId, movieId, rating)
+
+
+reco_train <- train_set %>%
+  select(userId, movieId, rating)
+
+reco_train <- with(reco_train,
+                   data_memory(user_index = userId, item_index = movieId,
+                               rating = rating, index1 = TRUE))
+
+# train model with default parameters
+
+r$train(reco_train, opts = c(niter = 50))
+
+# test
+reco_test <- test_set %>%
+  select(userId, movieId, rating)
+
+reco_test <- with(reco_test,
+                  data_memory(user_index = userId, item_index = movieId,
+                              rating = rating, index1 = TRUE))
+
+y_hat <- r$predict(reco_test)
+
+RMSE(y_hat, test_set$rating)
+
+
+
+# cross-validation for optimal parameter
+opts = r$tune(reco_train,
+              opts = list(dim = c(5, 10, 20, 50),
+                          lrate = c(0.1, 0.2),
+                          costp_l1 = c(0), costq_l1 = c(0),
+                          costp_l2 = c(0, 0.01, 0.1, 0.3),
+                          nthread = 4, niter = 20, nfold = 3))
+best_options <- opts$min
+
+
+# train model with the best parameters
+r$train(reco_train, opts = c(best_options, niter = 50, verbose = FALSE))
+
+y_hat <- r$predict(reco_test)
+
+max(y_hat)
+min(y_hat)
+
+y_hat <- ifelse(y_hat > 5, 5, ifelse(y_hat < 0.5, 0.5, y_hat))
+
+max(y_hat)
+min(y_hat)
+
+RMSE(y_hat, test_set$rating)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # fit with best lambda on a complete edx dataset
 b_i <- edx %>% 
@@ -908,88 +1044,8 @@ RMSE(predicted_ratings, validation$rating)
 # 0.864114 < 0.8649
 
 
-#install.packages('recommenderlab')
-library(recommenderlab)
-
-data(MovieLense)
-MovieLense
-
-dataMatrix <- as(test_set, "realRatingMatrix")
-head(as(dataMatrix, "data.frame"))
-
-dataMatrix.normalize <- normalize(dataMatrix)
-
-
-image(dataMatrix, main = "Raw Ratings")
-image(dataMatrix.normalize, main = "Normalized Ratings")
-
-rec=Recommender(dataMatrix[1:nrow(dataMatrix)],method="POPULAR")
-
-print(rec)
-names(getModel(rec))
-getModel(rec)$nn
-
-recom <- predict(rec, dataMatrix[1:nrow(dataMatrix)], type="ratings")
-recom
-
-#users <- sample(unique(edx$userId), 100)
-sample_matrix <- edx %>% 
-  select(userId, movieId, rating) %>%
-  spread(movieId, rating) %>% 
-  as.matrix() %>% t(.)
-
-
-# trying recosystem
-library(recosystem)
-
-r = Reco()
-
-
-reco_train <- train_set %>%
-  left_join(b_i, by = "movieId") %>%
-  left_join(b_u, by = "userId") %>%
-  left_join(b_y, by = "year_released") %>%
-  left_join(b_g, by = "genres") %>%
-  left_join(b_ry, by= "year_rated") %>%
-  left_join(b_rm, by= "month_rated") %>%
-  mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
-  select(userId, movieId, rating)
-
-reco_train <- with(reco_train,
-                   data_memory(user_index = userId, item_index = movieId,
-                               rating = rating, index1 = TRUE))
-
-# train model with default parameters
-
-r$train(reco_train, opts = c(niter = 50))
-
-# test
-reco_test <- test_set %>%
-  select(userId, movieId, rating)
-
-reco_test <- with(reco_test,
-                   data_memory(user_index = userId, item_index = movieId,
-                               rating = rating, index1 = TRUE))
-
-y_hat <- r$predict(reco_test)
-
-RMSE(y_hat, test_set$rating)
 
 
 
-# cross-validation for optimal parameter
-opts = r$tune(reco_train,
-              opts = list(dim = c(5, 10, 20, 50),
-                          lrate = c(0.1, 0.2),
-                          costp_l1 = c(0), costq_l1 = c(0),
-                          costp_l2 = c(0, 0.01, 0.1, 0.3),
-                          nthread = 4, niter = 20, nfold = 3))
-best_options <- opts$min
 
 
-# train model with the best parameters
-r$train(reco_train, opts = c(best_options, niter = 50, verbose = FALSE))
-
-y_hat <- r$predict(reco_test)
-
-RMSE(y_hat, test_set$rating)
