@@ -536,7 +536,7 @@ predicted_ratings <- mu + test_set %>%
 
 model_1_rmse <- RMSE(predicted_ratings, test_set$rating)
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Movie Effect Model",
+                          data.frame(method="Movie Effect Model",
                                      RMSE = model_1_rmse ))
 rmse_results
 
@@ -562,7 +562,7 @@ predicted_ratings <- test_set %>%
 
 model_2_rmse <- RMSE(predicted_ratings, test_set$rating)
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Movie + User Effect Model",
+                          data.frame(method="Movie + User Effect Model",
                                      RMSE = model_2_rmse ))
 rmse_results
 
@@ -589,7 +589,7 @@ predicted_ratings <- test_set %>%
 
 model_3_rmse <- RMSE(predicted_ratings, test_set$rating)
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Movie + User + Year Effect Model",
+                          data.frame(method="Movie + User + Year Effect Model",
                                      RMSE = model_3_rmse ))
 rmse_results
 
@@ -621,7 +621,7 @@ predicted_ratings <- test_set %>%
 
 model_4_rmse <- RMSE(predicted_ratings, test_set$rating)
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Movie + User + Year + Genre Effect Model",
+                          data.frame(method="Movie + User + Year + Genre Effect Model",
                                      RMSE = model_4_rmse ))
 rmse_results
 
@@ -708,7 +708,7 @@ predicted_ratings <- test_set %>%
 
 model_5_rmse <- RMSE(predicted_ratings, test_set$rating)
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Regularized Movie + User + Year + Genre Effect Model",
+                          data.frame(method="Regularized Movie + User + Year + Genre Effect Model",
                                      RMSE = model_5_rmse ))
 rmse_results
 
@@ -904,5 +904,6 @@ predicted_ratings <-
   pull(pred)
 
 RMSE(predicted_ratings, validation$rating)
+
 
 # 0.864114 < 0.8649
