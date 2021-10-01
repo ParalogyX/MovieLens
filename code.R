@@ -906,3 +906,90 @@ predicted_ratings <-
 RMSE(predicted_ratings, validation$rating)
 
 # 0.864114 < 0.8649
+
+
+#install.packages('recommenderlab')
+library(recommenderlab)
+
+data(MovieLense)
+MovieLense
+
+dataMatrix <- as(test_set, "realRatingMatrix")
+head(as(dataMatrix, "data.frame"))
+
+dataMatrix.normalize <- normalize(dataMatrix)
+
+
+image(dataMatrix, main = "Raw Ratings")
+image(dataMatrix.normalize, main = "Normalized Ratings")
+
+rec=Recommender(dataMatrix[1:nrow(dataMatrix)],method="POPULAR")
+
+print(rec)
+names(getModel(rec))
+getModel(rec)$nn
+
+recom <- predict(rec, dataMatrix[1:nrow(dataMatrix)], type="ratings")
+recom
+
+#users <- sample(unique(edx$userId), 100)
+sample_matrix <- edx %>% 
+  select(userId, movieId, rating) %>%
+  spread(movieId, rating) %>% 
+  as.matrix() %>% t(.)
+
+
+# trying recosystem
+library(recosystem)
+
+r = Reco()
+
+
+reco_train <- train_set %>%
+  left_join(b_i, by = "movieId") %>%
+  left_join(b_u, by = "userId") %>%
+  left_join(b_y, by = "year_released") %>%
+  left_join(b_g, by = "genres") %>%
+  left_join(b_ry, by= "year_rated") %>%
+  left_join(b_rm, by= "month_rated") %>%
+  mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
+  select(userId, movieId, rating)
+
+reco_train <- with(reco_train,
+                   data_memory(user_index = userId, item_index = movieId,
+                               rating = rating, index1 = TRUE))
+
+# train model with default parameters
+
+r$train(reco_train, opts = c(niter = 50))
+
+# test
+reco_test <- test_set %>%
+  select(userId, movieId, rating)
+
+reco_test <- with(reco_test,
+                   data_memory(user_index = userId, item_index = movieId,
+                               rating = rating, index1 = TRUE))
+
+y_hat <- r$predict(reco_test)
+
+RMSE(y_hat, test_set$rating)
+
+
+
+# cross-validation for optimal parameter
+opts = r$tune(reco_train,
+              opts = list(dim = c(5, 10, 20, 50),
+                          lrate = c(0.1, 0.2),
+                          costp_l1 = c(0), costq_l1 = c(0),
+                          costp_l2 = c(0, 0.01, 0.1, 0.3),
+                          nthread = 4, niter = 20, nfold = 3))
+best_options <- opts$min
+
+
+# train model with the best parameters
+r$train(reco_train, opts = c(best_options, niter = 50, verbose = FALSE))
+
+y_hat <- r$predict(reco_test)
+
+RMSE(y_hat, test_set$rating)
