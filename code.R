@@ -872,7 +872,7 @@ rmse_results
 
 # clean variable environment from variables which we will not use anymore
 rm(b_g, b_i, b_rm, b_ry, b_u, b_y, genre_avgs, genres_df, movie_avgs, user_avgs, year_avgs)
-rm(lambdas, lambda, predicted_ratings, mu)
+rm(lambdas, lambda, predicted_ratings, mu, rmses)
 # try knn, rf and loess with default parameters
 
 # first read about different models for your data
@@ -963,7 +963,7 @@ rmse_results <- bind_rows(rmse_results,
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
 rmse_results
 
-rm(r, opts, reco_test, reco_train, test_set, train_set)
+rm(r, opts, reco_test, reco_train, test_set, train_set, predicted_ratings)
 
 # Train recosys model with best parameters on a complete edx dataset
 
