@@ -119,7 +119,7 @@ edx %>% ggplot(aes(rating)) +
   xlab("Rating") + ylab("Count" )+ 
   scale_y_continuous(breaks = seq(0,3*10^6,10^6),
                      labels=c("0","1M","2M","3M")) +
-  ggtitle("Distibution of Movie ratings") +
+  ggtitle("Distibution of movie ratings") +
   theme(plot.title = element_text(hjust = 0.5)) 
 
 #Comparing rating types: negative if <= mean, positive if > mean
@@ -142,16 +142,16 @@ edx %>%
 # the number of unique users and movies in datasets
 edx_unique_info <- edx %>% 
   summarise(n_user_unique = n_distinct(userId),
-            n_Movie_unique = n_distinct(movieId))
+            n_movie_unique = n_distinct(movieId))
 edx_unique_info
 
 # total user/movie combination
-edx_unique_info$n_user_unique * edx_unique_info$n_Movie_unique
+edx_unique_info$n_user_unique * edx_unique_info$n_movie_unique
 
 nrow(edx)
 
 # how many ratings are missing?
-paste(round(nrow(edx) / (edx_unique_info$n_user_unique * edx_unique_info$n_Movie_unique) * 100, 1), "%")
+paste(round(nrow(edx) / (edx_unique_info$n_user_unique * edx_unique_info$n_movie_unique) * 100, 1), "%")
 
 # sample 100 users and 100 movies to visualize rated/unrated user-movie combinations
 users <- sample(unique(edx$userId), 100)
@@ -267,7 +267,7 @@ edx %>% group_by(userId) %>%
   ggplot(aes(average_user_ratings)) +
   geom_histogram(bins = 100,col = "black") +
   geom_vline(xintercept = mean(edx$rating), col = "yellow") +
-  ylab("Count of movies") +
+  ylab("Count of users") +
   ggtitle("Distribution of users by mean rating of user") +
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -317,16 +317,30 @@ edx <- edx %>%
          day_rated = weekdays(as_datetime(timestamp))) %>% 
   select(-timestamp)
 
+# Released year range
+min(edx$year_released)
+max(edx$year_released)
+
+# How many movies were released each year
+edx %>% distinct(year_released, movieId) %>% 
+  group_by(year_released) %>%
+  summarise(number_of_movies = n()) %>%
+  ggplot(aes(x = year_released, y = number_of_movies)) +
+  geom_col(col = "black") +
+  xlab("Released year") + ylab("Count of movies" )+ 
+  ggtitle("Distribution of movies by released year") +
+  theme(plot.title = element_text(hjust = 0.5))
 
 # Effect of released year of movieId on rating
 seperate_year_released <- edx %>% group_by(year_released) %>% 
   summarise(year_released_rating = mean(rating)) %>% arrange(desc(year_released_rating))
 
+
 seperate_year_released %>% 
   ggplot(aes(year_released,year_released_rating)) + 
   geom_point(alpha= 0.2, color = "blue", lwd = 1) +
   geom_smooth(method = "loess", color = "red") +
-  ggtitle("Effect of released year on Rating") +
+  ggtitle("Effect of released year on rating") +
   xlab("Released year") +
   ylab("Rating") +
   theme(plot.title = element_text(hjust = 0.5))
@@ -344,7 +358,7 @@ year_of_rating %>%
   ggplot(aes(year_rated,year_rated_rating)) + 
   geom_point(alpha= 0.2, color = "blue", lwd = 1) +
   geom_smooth(method = "loess", color = "red") +
-  ggtitle("Effect of rated year on Rating") +
+  ggtitle("Effect of rated year on rating") +
   xlab("Rated year") +
   ylab("Rating") +
   theme(plot.title = element_text(hjust = 0.5))
@@ -360,7 +374,7 @@ month_of_rating %>%
   ggplot(aes(month_rated,month_rated_rating)) + 
   geom_point(alpha= 0.2, color = "blue", lwd = 1) +
   geom_smooth(method = "loess", color = "red") +
-  ggtitle("Effect of rated month on Rating") +
+  ggtitle("Effect of rated month on rating") +
   xlab("Rated month") +
   ylab("Rating") +
   theme(plot.title = element_text(hjust = 0.5))
@@ -373,7 +387,7 @@ day_of_rating <- edx %>% group_by(day_rated) %>%
 day_of_rating %>% 
   ggplot(aes(day_rated, day_rated_rating)) + 
   geom_point(color = "blue", lwd = 1) +
-  ggtitle("Effect of rated day of the week on Rating") +
+  ggtitle("Effect of rated day of the week on rating") +
   xlab("Rated day of week") +
   ylab("Rating") +
   theme(plot.title = element_text(hjust = 0.5))
@@ -455,8 +469,8 @@ colnames(genres_df) <- names
 # check if we can remove some non indicative genres
 # build correlation matrix
 
-corrplot(cor(genres_df), method="color", type="upper")
-
+corrplot(cor(genres_df), method="color", type="upper", mar=c(0,0,1.5 ,0))
+title("Correlations between genres", line = 3, font.main = 1)
 # some meaningful correlation only between genres Children and Animation
 # other genres are relatively independent from each other
 
@@ -670,7 +684,9 @@ rmses <- sapply(lambdas, function(l){
   return(RMSE(predicted_ratings, test_set$rating))
 })
 
-qplot(lambdas, rmses)  
+qplot(lambdas, rmses, main = "Different lambda versus RMSE") +
+  theme(plot.title = element_text(hjust = 0.5))
+# which lambda makes best RMSE
 lambda <- lambdas[which.min(rmses)]
 min(rmses)
 lambda
@@ -776,7 +792,11 @@ rmses <- sapply(lambdas, function(l){
   return(RMSE(predicted_ratings, test_set$rating))
 })
 
-qplot(lambdas, rmses)  
+
+qplot(lambdas, rmses, main = "Different lambda versus RMSE") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Which lambda makes best RMSE
 lambda <- lambdas[which.min(rmses)]
 min(rmses)
 lambda
