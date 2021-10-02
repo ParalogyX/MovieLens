@@ -549,8 +549,10 @@ predicted_ratings <- mu + test_set %>%
 predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
 
 rmse_results <- bind_rows(rmse_results,
+
                           data.frame(method="Movie effect model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
+
 rmse_results
 
 
@@ -578,6 +580,7 @@ predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings <
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Movie + user effect model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
+
 rmse_results
 
 # include released year
@@ -606,6 +609,7 @@ predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings <
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Movie + user + year effect model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
+
 rmse_results
 
 # released year didn't give much improvement
@@ -640,6 +644,7 @@ predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings <
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Movie + user + year + genre Effect Model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
+
 rmse_results
 
 # remember that some movies were rated just few times and some users rated only few movies,
@@ -730,6 +735,7 @@ predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings <
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Regularized movie + user + year + genre effect model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
+
 rmse_results
 
 
@@ -1029,9 +1035,6 @@ rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Final model on validation (final hold-out) set",
                                      RMSE = model_validation_rmse ))
 rmse_results
-
-
-
 
 
 
