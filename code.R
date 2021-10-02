@@ -19,6 +19,7 @@ if(!require(Matrix)) install.packages("lubridate", repos = "http://cran.us.r-pro
 if(!require(stringr)) install.packages("stringr", repos = "http://cran.us.r-project.org")
 if(!require(pheatmap)) install.packages("pheatmap", repos = "http://cran.us.r-project.org")
 if(!require(corrplot)) install.packages("corrplot", repos = "http://cran.us.r-project.org")
+if(!require(recosystem)) install.packages("recosystem", repos = "http://cran.us.r-project.org")
 
 # loading libraries
 library(tidyverse)
@@ -29,7 +30,7 @@ library(Matrix)
 library(stringr)
 library(pheatmap)
 library(corrplot)
-
+library(recosystem)
 
 ###########################################################
 # Create edx set, validation set (final hold-out test set)#
@@ -40,20 +41,17 @@ library(corrplot)
 # https://grouplens.org/datasets/movielens/10m/
 # http://files.grouplens.org/datasets/movielens/ml-10m.zip
 
-# If data is not downloaded - download it and unzip. If files are already unzipped and in directory, just read them
-if (!file.exists("ml-10M100K/ratings.dat") | !file.exists("ml-10M100K/movies.dat")) {
-  dl <- tempfile()
-  download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
-  
-  ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
-                   col.names = c("userId", "movieId", "rating", "timestamp"))
-  
-  movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
-} else {
-  ratings <- fread(text = gsub("::", "\t", readLines("ml-10M100K/ratings.dat")),
-                   col.names = c("userId", "movieId", "rating", "timestamp"))
-  movies <- str_split_fixed(readLines("ml-10M100K/movies.dat"), "\\::", 3)
-}
+# Note: this process could take a couple of minutes
+
+# download data
+dl <- tempfile()
+download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+
+ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
+                 col.names = c("userId", "movieId", "rating", "timestamp"))
+
+movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
+
 
 # name columns
 colnames(movies) <- c("movieId", "title", "genres")
@@ -513,9 +511,8 @@ RMSE <- function(true_ratings, predicted_ratings){
 
 # first model: naive model, predicts always average rating
 mu <- mean(train_set$rating)
-naive_rmse <- RMSE(test_set$rating, mu)
-naive_rmse
-rmse_results <- data.frame(method = "Just the average", RMSE = naive_rmse)
+
+rmse_results <- data.frame(method = "Just the average", RMSE = RMSE(test_set$rating, mu))
 
 # include movie bias (we saw, that some movies are more popular than others)
 # bias is the term for effect
@@ -534,10 +531,12 @@ predicted_ratings <- mu + test_set %>%
   left_join(movie_avgs, by='movieId') %>%
   .$b_i
 
-model_1_rmse <- RMSE(predicted_ratings, test_set$rating)
+
+predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
+
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Movie Effect Model",
-                                     RMSE = model_1_rmse ))
+                          data.frame(method="Movie effect model",
+                                     RMSE = RMSE(predicted_ratings, test_set$rating) ))
 rmse_results
 
 
@@ -560,10 +559,11 @@ predicted_ratings <- test_set %>%
   mutate(pred = mu + b_i + b_u) %>%
   .$pred
 
-model_2_rmse <- RMSE(predicted_ratings, test_set$rating)
+predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
+
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Movie + User Effect Model",
-                                     RMSE = model_2_rmse ))
+                          data.frame(method="Movie + user effect model",
+                                     RMSE = RMSE(predicted_ratings, test_set$rating) ))
 rmse_results
 
 # include released year
@@ -587,10 +587,11 @@ predicted_ratings <- test_set %>%
   mutate(pred = mu + b_i + b_u + b_y) %>%
   .$pred
 
-model_3_rmse <- RMSE(predicted_ratings, test_set$rating)
+predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
+
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Movie + User + Year Effect Model",
-                                     RMSE = model_3_rmse ))
+                          data.frame(method="Movie + user + year effect model",
+                                     RMSE = RMSE(predicted_ratings, test_set$rating) ))
 rmse_results
 
 # released year didn't give much improvement
@@ -619,10 +620,12 @@ predicted_ratings <- test_set %>%
   mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
   .$pred
 
-model_4_rmse <- RMSE(predicted_ratings, test_set$rating)
+
+predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
+
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Movie + User + Year + Genre Effect Model",
-                                     RMSE = model_4_rmse ))
+                          data.frame(method="Movie + user + year + genre Effect Model",
+                                     RMSE = RMSE(predicted_ratings, test_set$rating) ))
 rmse_results
 
 # remember that some movies were rated just few times and some users rated only few movies,
@@ -706,10 +709,11 @@ predicted_ratings <- test_set %>%
   mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
   .$pred
 
-model_5_rmse <- RMSE(predicted_ratings, test_set$rating)
+predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
+ 
 rmse_results <- bind_rows(rmse_results,
-                          data_frame(method="Regularized Movie + User + Year + Genre Effect Model",
-                                     RMSE = model_5_rmse ))
+                          data.frame(method="Regularized movie + user + year + genre effect model",
+                                     RMSE = RMSE(predicted_ratings, test_set$rating) ))
 rmse_results
 
 
@@ -831,43 +835,56 @@ predicted_ratings <-
   mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
   pull(pred)
 
-model_6_rmse <- RMSE(predicted_ratings, test_set$rating)
+
+predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
+
 rmse_results <- bind_rows(rmse_results,
-                          data.frame(method="Regularized Movie + User + Year + Genre + rating year and month effect Model",
-                                     RMSE = model_6_rmse ))
+                          data.frame(method="Regularized movie + user + year + genre + rating year and month effect model",
+                                     RMSE = RMSE(predicted_ratings, test_set$rating) ))
 rmse_results
 
 
-model_df <- train_set %>% 
-  left_join(b_i, by = "movieId") %>%
-  left_join(b_u, by = "userId") %>%
-  left_join(b_y, by = "year_released") %>%
-  left_join(b_g, by = "genres") %>%
-  left_join(b_ry, by = "year_rated") %>%
-  left_join(b_rm, by = "month_rated")
+# # linear regression on biases
+# 
+# train_biases <- train_set %>% 
+#   left_join(b_i, by = "movieId") %>%
+#   left_join(b_u, by = "userId") %>%
+#   left_join(b_y, by = "year_released") %>%
+#   left_join(b_g, by = "genres")
+# 
+# # next line takes ~20 minutes to run
+# fit_lm <- train(rating ~ b_i + b_u + b_y + b_g, method = "lm", data = train_biases)
+# 
+# test_biases <- test_set %>% 
+#   left_join(b_i, by = "movieId") %>%
+#   left_join(b_u, by = "userId") %>%
+#   left_join(b_y, by = "year_released") %>%
+#   left_join(b_g, by = "genres")
+# 
+# 
+# predicted_ratings <- predict(fit_lm, test_biases, type = "raw")
+# predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
+# 
+# rmse_results <- bind_rows(rmse_results,
+#                           data.frame(method="Linear regression on regularized effect model",
+#                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
+# rmse_results
 
-
-library(caret)
-train_lm <- train(rating ~ b_i + b_u + b_y + b_g, method = "lm", data = model_df)
-
-test_df <- test_set %>% 
-  left_join(b_i, by = "movieId") %>%
-  left_join(b_u, by = "userId") %>%
-  left_join(b_y, by = "year_released") %>%
-  left_join(b_g, by = "genres") %>%
-  left_join(b_ry, by = "year_rated") %>%
-  left_join(b_rm, by = "month_rated")
-
-y_hat_lm <- predict(train_lm, test_df, type = "raw")
-y_hat_lm <- ifelse(y_hat_lm > 5, 5, ifelse(y_hat_lm < 0.5, 0.5, y_hat_lm))
-RMSE(y_hat_lm, test_set$rating)
-
-
-
+# clean variable environment from variables which we will not use anymore
+rm(b_g, b_i, b_rm, b_ry, b_u, b_y, genre_avgs, genres_df, movie_avgs, user_avgs, year_avgs)
+rm(lambdas, lambda, predicted_ratings, mu)
 # try knn, rf and loess with default parameters
 
 # first read about different models for your data
 # and/or test on small subset
+
+
+
+# train_small_set <- sample_n(train_set, 100)
+# test_small_set <- sample_n(test_set, 100)
+
+# train_knn <- train(rating ~ userId + movieId + title + genres + year_released, method = "knn", data = train_small_set)
+# y_hat_knn <- predict(train_knn, test_small_set, type = "raw")
 
 # train_knn <- train(rating ~ b_i + b_u + b_y + b_g, method = "knn", data = model_df)
 # train_rf<- train(rating ~ b_i + b_u + b_y + b_g, method = "rf", data = model_df)
@@ -892,24 +909,14 @@ RMSE(y_hat_lm, test_set$rating)
 
 
 # trying recosystem
-library(recosystem)
+
 
 r = Reco()
 
 
 reco_train <- train_set %>%
-  left_join(b_i, by = "movieId") %>%
-  left_join(b_u, by = "userId") %>%
-  left_join(b_y, by = "year_released") %>%
-  left_join(b_g, by = "genres") %>%
-  left_join(b_ry, by= "year_rated") %>%
-  left_join(b_rm, by= "month_rated") %>%
-  mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
   select(userId, movieId, rating)
 
-
-reco_train <- train_set %>%
-  select(userId, movieId, rating)
 
 reco_train <- with(reco_train,
                    data_memory(user_index = userId, item_index = movieId,
@@ -921,15 +928,14 @@ r$train(reco_train, opts = c(niter = 50))
 
 # test
 reco_test <- test_set %>%
-  select(userId, movieId, rating)
+  select(userId, movieId)
 
 reco_test <- with(reco_test,
-                  data_memory(user_index = userId, item_index = movieId,
-                              rating = rating, index1 = TRUE))
+                  data_memory(user_index = userId, item_index = movieId, index1 = TRUE))
 
-y_hat <- r$predict(reco_test)
+predicted_ratings <- r$predict(reco_test)
 
-RMSE(y_hat, test_set$rating)
+RMSE(predicted_ratings, test_set$rating)
 
 
 
@@ -944,104 +950,65 @@ best_options <- opts$min
 
 
 # train model with the best parameters
-r$train(reco_train, opts = c(best_options, niter = 50, verbose = FALSE))
+r$train(reco_train, opts = c(best_options, niter = 50))
 
-y_hat <- r$predict(reco_test)
+# predict on test_set
+predicted_ratings <- r$predict(reco_test)
 
-max(y_hat)
-min(y_hat)
-
-y_hat <- ifelse(y_hat > 5, 5, ifelse(y_hat < 0.5, 0.5, y_hat))
-
-max(y_hat)
-min(y_hat)
-
-RMSE(y_hat, test_set$rating)
+predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
 
 
+rmse_results <- bind_rows(rmse_results,
+                          data.frame(method="Recosystem matrix factorization model",
+                                     RMSE = RMSE(predicted_ratings, test_set$rating) ))
+rmse_results
 
+rm(r, opts, reco_test, reco_train, test_set, train_set)
 
+# Train recosys model with best parameters on a complete edx dataset
 
+r = Reco()
 
+reco_edx <- edx %>%
+  select(userId, movieId, rating)
 
+reco_edx <- with(reco_edx,
+                   data_memory(user_index = userId, item_index = movieId,
+                               rating = rating, index1 = TRUE))
 
+r$train(reco_edx, opts = c(best_options, niter = 50))
 
-
-
-
-
-
-
-
-
-
-# fit with best lambda on a complete edx dataset
-b_i <- edx %>% 
-  group_by(movieId) %>%
-  summarize(b_i = sum(rating - mu)/(n()+lambda))
-
-
-b_u <- edx %>% 
-  left_join(b_i, by="movieId") %>%
-  group_by(userId) %>%
-  summarize(b_u = sum(rating - b_i - mu)/(n()+lambda))
-
-b_y <- edx %>% 
-  left_join(b_i, by="movieId") %>%
-  left_join(b_u, by="userId") %>%
-  group_by(year_released) %>%
-  summarize(b_y = sum(rating - b_i - b_u - mu)/(n()+lambda))
-
-b_g <- edx %>% 
-  left_join(b_i, by="movieId") %>%
-  left_join(b_u, by="userId") %>%
-  left_join(b_y, by="year_released") %>%
-  group_by(genres) %>%
-  summarize(b_g = sum(rating - b_i - b_u - b_y - mu)/(n()+lambda))
-
-b_ry <- edx %>% 
-  left_join(b_i, by="movieId") %>%
-  left_join(b_u, by="userId") %>%
-  left_join(b_y, by="year_released") %>%
-  left_join(b_g, by="genres") %>%
-  group_by(year_rated) %>%
-  summarize(b_ry = sum(rating - b_i - b_u - b_y - b_g - mu)/(n()+lambda))
-
-b_rm <- edx %>% 
-  left_join(b_i, by="movieId") %>%
-  left_join(b_u, by="userId") %>%
-  left_join(b_y, by="year_released") %>%
-  left_join(b_g, by="genres") %>%
-  left_join(b_ry, by="year_rated") %>%
-  group_by(month_rated) %>%
-  summarize(b_rm = sum(rating - b_i - b_u - b_y - b_g - b_ry - mu)/(n()+lambda))
+# r = best final model
 
 
 ###########################################################
 #            Final test on validation dataset             #
 ###########################################################
 
-# add columns year_released, year_rated and month_rated from timestamp
-validation <- validation %>% 
-  mutate(year_released = as.numeric(str_sub(title,-5,-2)), 
-         year_rated = year(as_datetime(timestamp)),
-         month_rated = month(as_datetime(timestamp)))
+# keep only userId and movieId in validation set 
 
-# predict ratings in validation set using biases
-predicted_ratings <- 
-  validation %>% 
-  left_join(b_i, by = "movieId") %>%
-  left_join(b_u, by = "userId") %>%
-  left_join(b_y, by = "year_released") %>%
-  left_join(b_g, by = "genres") %>%
-  left_join(b_ry, by= "year_rated") %>%
-  left_join(b_rm, by= "month_rated") %>%
-  mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
-  pull(pred)
+reco_validation <- validation %>%
+  select(userId, movieId)
 
-RMSE(predicted_ratings, validation$rating)
+# specify source for recommender system
+reco_validation <- with(reco_validation,
+                 data_memory(user_index = userId, item_index = movieId, index1 = TRUE))
 
-# 0.864114 < 0.8649
+# predict using our best model
+validation_predict <- r$predict(reco_validation)
+
+# limit predictions in range 0.5 - 5.0
+validation_predict <- ifelse(validation_predict > 5, 5, ifelse(validation_predict < 0.5, 0.5, validation_predict))
+
+# final RMSE
+RMSE(validation_predict, validation$rating)
+
+
+model_validation_rmse <- RMSE(validation_predict, validation$rating)
+rmse_results <- bind_rows(rmse_results,
+                          data.frame(method="Final model on validation (final hold-out) set",
+                                     RMSE = model_validation_rmse ))
+rmse_results
 
 
 
