@@ -20,6 +20,7 @@ if(!require(stringr)) install.packages("stringr", repos = "http://cran.us.r-proj
 if(!require(pheatmap)) install.packages("pheatmap", repos = "http://cran.us.r-project.org")
 if(!require(corrplot)) install.packages("corrplot", repos = "http://cran.us.r-project.org")
 if(!require(recosystem)) install.packages("recosystem", repos = "http://cran.us.r-project.org")
+if(!require(gridExtra)) install.packages("gridExtra", repos = "http://cran.us.r-project.org")
 
 # loading libraries
 library(tidyverse)
@@ -31,6 +32,7 @@ library(stringr)
 library(pheatmap)
 library(corrplot)
 library(recosystem)
+library(gridExtra)
 
 ###########################################################
 # Create edx set, validation set (final hold-out test set)#
@@ -116,7 +118,7 @@ summary(edx$rating)
 # the distribution of different ratings
 edx %>% ggplot(aes(rating)) + 
   geom_bar(col = "black") +
-  xlab("Rating") + ylab("Count" )+ 
+  xlab("Rating") + ylab("Count" ) + 
   scale_y_continuous(breaks = seq(0,3*10^6,10^6),
                      labels=c("0","1M","2M","3M")) +
   ggtitle("Distibution of movie ratings") +
@@ -200,6 +202,7 @@ edx %>% group_by(movieId) %>%
   summarise(number_of_ratings  = n()) %>%
   ggplot(aes(number_of_ratings)) +
   geom_histogram(bins = 100, col = "black") + scale_x_log10() +
+  xlab("Number of ratings") + ylab("Count of movies" ) +
   ggtitle("Distribution of movies by no. of rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -214,7 +217,7 @@ edx %>% group_by(movieId) %>%
   ggplot(aes(average_movie_ratings)) +
   geom_histogram(bins = 100,col = "black") +
   geom_vline(xintercept = mean(edx$rating), col = "yellow") +
-  ylab("Count of movies") +
+  xlab("Average rating") + ylab("Count of movies") +
   ggtitle("Distribution of movies by mean rating of movies") +
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -227,7 +230,7 @@ edx %>% group_by(movieId) %>%
   ggtitle("Average rating versus number of movie ratings") +
   geom_smooth(method = "loess", color = "red") + 
   xlab ("Number of movie ratings") +
-  ylab("Average of rating") +
+  ylab("Average rating") +
   theme(plot.title = element_text(hjust = 0.5)) 
 
 # We can see, that more often rated movies are also have slightly higher average rating
@@ -254,6 +257,7 @@ edx %>% group_by(userId) %>%
   summarise(number_of_ratings_by_user  = n()) %>%
   ggplot(aes(number_of_ratings_by_user)) +
   geom_histogram(bins = 100, col = "black") + scale_x_log10() +
+  xlab("Number of ratings") + ylab("Count of users" ) +
   ggtitle("Distribution of users by no. of rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -267,7 +271,7 @@ edx %>% group_by(userId) %>%
   ggplot(aes(average_user_ratings)) +
   geom_histogram(bins = 100,col = "black") +
   geom_vline(xintercept = mean(edx$rating), col = "yellow") +
-  ylab("Count of users") +
+  xlab("Average rating") + ylab("Count of users") +
   ggtitle("Distribution of users by mean rating of user") +
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -322,14 +326,28 @@ min(edx$year_released)
 max(edx$year_released)
 
 # How many movies were released each year
-edx %>% distinct(year_released, movieId) %>% 
-  group_by(year_released) %>%
-  summarise(number_of_movies = n()) %>%
-  ggplot(aes(x = year_released, y = number_of_movies)) +
-  geom_col(col = "black") +
-  xlab("Released year") + ylab("Count of movies" )+ 
-  ggtitle("Distribution of movies by released year") +
-  theme(plot.title = element_text(hjust = 0.5))
+year_distr1 <- edx %>% distinct(year_released, movieId) %>% 
+                    group_by(year_released) %>%
+                    summarise(number_of_movies = n()) %>%
+                    ggplot(aes(x = year_released, y = number_of_movies)) +
+                    geom_col(col = "black") +
+                    xlab("Year of release") + ylab("Count of movies" )+ 
+                    ggtitle("Distribution of movies by released year") +
+                    theme(plot.title = element_text(hjust = 0.5))
+
+# How many ratings for movies released each year
+
+year_distr2 <- edx %>% 
+                  ggplot(aes(year_released)) +
+                  geom_bar(col = "black") +
+                  xlab("Year of release") + ylab("Count of ratings" ) +
+                  scale_y_continuous(breaks = seq(0,8*10^5, 2*10^5),
+                                     labels=c("0","200k","400k","600k", "800k")) +
+                  ggtitle("Distibution of movie ratings by released year") +
+                  theme(plot.title = element_text(hjust = 0.5)) 
+  
+grid.arrange(year_distr1, year_distr2, nrow=2)
+
 
 # Effect of released year of movieId on rating
 seperate_year_released <- edx %>% group_by(year_released) %>% 
@@ -342,7 +360,7 @@ seperate_year_released %>%
   geom_smooth(method = "loess", color = "red") +
   ggtitle("Effect of released year on rating") +
   xlab("Released year") +
-  ylab("Rating") +
+  ylab("Average rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
 #Movies released in 1940-1960 have higher average rating 
@@ -360,7 +378,7 @@ year_of_rating %>%
   geom_smooth(method = "loess", color = "red") +
   ggtitle("Effect of rated year on rating") +
   xlab("Rated year") +
-  ylab("Rating") +
+  ylab("Average rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
 # first year when movie was rated is
@@ -376,7 +394,7 @@ month_of_rating %>%
   geom_smooth(method = "loess", color = "red") +
   ggtitle("Effect of rated month on rating") +
   xlab("Rated month") +
-  ylab("Rating") +
+  ylab("Average rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
 
@@ -389,7 +407,7 @@ day_of_rating %>%
   geom_point(color = "blue", lwd = 1) +
   ggtitle("Effect of rated day of the week on rating") +
   xlab("Rated day of week") +
-  ylab("Rating") +
+  ylab("Average rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
 # Year and month of rating have effect on it (lower average rating after 2000 and lower rating during summer time)
@@ -469,7 +487,8 @@ colnames(genres_df) <- names
 # check if we can remove some non indicative genres
 # build correlation matrix
 
-corrplot(cor(genres_df), method="color", type="upper", mar=c(0,0,1.5 ,0))
+corrplot(cor(genres_df), method="color", number.cex=0.7, type="upper", diag=FALSE,
+         mar=c(0,0,1.5 ,0), tl.col="black", addCoef.col = "black")
 title("Correlations between genres", line = 3, font.main = 1)
 # some meaningful correlation only between genres Children and Animation
 # other genres are relatively independent from each other
