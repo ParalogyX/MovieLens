@@ -292,7 +292,7 @@ edx %>% group_by(userId) %>%
   ggtitle("Average user rating versus number of ratings by the user") +
   geom_smooth(method = "loess", color = "red") + 
   xlab ("Number of ratings by user") +
-  ylab("Average of rating by user") +
+  ylab("Average rating by user") +
   theme(plot.title = element_text(hjust = 0.5)) 
 
 # Top 10 users by number of ratings:
@@ -348,6 +348,7 @@ year_distr2 <- edx %>%
   
 grid.arrange(year_distr1, year_distr2, nrow=2)
 
+rm(year_distr1, year_distr2)
 
 # Effect of released year of movieId on rating
 seperate_year_released <- edx %>% group_by(year_released) %>% 
@@ -393,6 +394,7 @@ month_of_rating %>%
   geom_point(alpha= 0.2, color = "blue", lwd = 1) +
   geom_smooth(method = "loess", color = "red") +
   ggtitle("Effect of rated month on rating") +
+  scale_x_continuous(breaks = seq(1,12)) +
   xlab("Rated month") +
   ylab("Average rating") +
   theme(plot.title = element_text(hjust = 0.5))
@@ -400,11 +402,14 @@ month_of_rating %>%
 
 #day
 day_of_rating <- edx %>% group_by(day_rated) %>% 
-  summarise(day_rated_rating = mean(rating)) %>% arrange(desc(day_rated_rating))
+  summarise(day_rated_rating = mean(rating))
+
+day_of_rating$day_rated <- ordered(day_of_rating$day_rated, levels=c("Monday", "Tuesday", "Wednesday", "Thursday", 
+                                         "Friday", "Saturday", "Sunday"))
 
 day_of_rating %>% 
   ggplot(aes(day_rated, day_rated_rating)) + 
-  geom_point(color = "blue", lwd = 1) +
+  geom_point(color = "blue", lwd = 2) +
   ggtitle("Effect of rated day of the week on rating") +
   xlab("Rated day of week") +
   ylab("Average rating") +
@@ -1056,5 +1061,9 @@ rmse_results <- bind_rows(rmse_results,
 rmse_results
 
 
+# 10 random ratings from validation with our prediction:
+validation %>% cbind(validation_predict) %>%
+  sample_n(10) %>% select(title, rating, validation_predict)
 
 
+# Most of the time we are not so far from real rating
