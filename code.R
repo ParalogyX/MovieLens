@@ -980,6 +980,7 @@ movie_titles <- train_set %>%
 
 colnames(y) <- with(movie_titles, title[match(colnames(y), movieId)])
 
+
 # convert them to residuals by removing the column and row effects
 y <- sweep(y, 2, colMeans(y, na.rm=TRUE))
 y <- sweep(y, 1, rowMeans(y, na.rm=TRUE))
@@ -989,27 +990,40 @@ y <- sweep(y, 1, rowMeans(y, na.rm=TRUE))
 
 # TODO: To check, that sampled titles in the matrix
 
-short_titles <- movie_titles %>% filter(nchar(title) < 20) %>% pull(title)
-action_sample <- train_set %>% filter(title %in% short_titles & grepl("Action", genres)) %>% pull(title) %>% unique()
-documentary_sample <- train_set %>% filter(title %in% short_titles & grepl("Documentary", genres)) %>% pull(title) %>% unique()
-children_sample <- train_set %>% filter(title %in% short_titles & grepl("Children", genres)) %>% pull(title) %>% unique()
+# with short title, to better visualisation
+short_titles <- colnames(y)[which(nchar(colnames(y)) < 25)]
+# keep only popular movies with 1000 or more ratings - mostly they are familiar to reader
+short_titles <- data.frame(title = short_titles) %>% 
+                inner_join(train_set, by = "title") %>% 
+                group_by(title) %>%
+                summarise(n = n(), aver_rating = mean(rating)) %>%
+                filter(n > 3000, aver_rating > 3.5) %>%
+                pull(title)
+                  
 
 
-rand_movies <- sample(action_sample, 6)
-rand_movies <- append(rand_movies, sample(documentary_sample, 3))
 
-#, , sample(children_sample, 2))
+action <- train_set %>% filter(title %in% short_titles & grepl("Action", genres)) %>% pull(title) %>% unique()
+romance <- train_set %>% filter(title %in% short_titles & grepl("Romance", genres)) %>% pull(title) %>% unique()
+children <- train_set %>% filter(title %in% short_titles & grepl("Children", genres)) %>% pull(title) %>% unique()
 
-rand_movies <- c("Killing Zoe (1994)", "True Lies (1994)", "Grass (1999)", "Everest (1998)", "December 7th (1943)")
 
-y[, rand_movies] 
+rand_movies <- sample(action_sample, 4)
+rand_movies <- append(rand_movies, sample(romance, 4))
+rand_movies <- append(rand_movies, sample(children_sample, 4))
+
+# remove year from title
+str_sub(rand_movies,-7,-1) <- ""
+
+# also in y
+str_sub(colnames(y),-7,-1) <- ""
 
 x <- y[, rand_movies]
 c <- cor(x, use="pairwise.complete")
 
 
-corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.col="black", tl.srt=45, tl.cex = 0.6)
-title("Correlations between genres", line = 3, font.main = 1)
+corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.col="black", tl.srt=45, tl.cex = 0.75)
+title("Correlations between movies", line = 3, font.main = 1)
 
 # trying recosystem
 
