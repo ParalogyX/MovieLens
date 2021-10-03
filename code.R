@@ -930,9 +930,67 @@ rm(lambdas, lambda, predicted_ratings, mu, rmses)
 # RMSE(y_hat_loess, test_set$rating)
 
 
+# Principal Component Analysis
+
+# our model Yui = u + bi+ bu + e
+
+# groups of movies have similar rating patterns and groups of users have similar rating patterns as well.
+# residuals: rui = yui - bi - bu
+
+#convert the data into a matrix so that each user gets a row, each movie gets a column, and  
+# yui is the entry in row u and column i.
+
+train_small <- train_set %>% 
+  group_by(movieId) %>%
+  filter(n() >= 50) %>% ungroup() %>% 
+  group_by(userId) %>%
+  filter(n() >= 50) %>% ungroup()
+
+y <- train_small %>% 
+  select(userId, movieId, rating) %>%
+  pivot_wider(names_from = "movieId", values_from = "rating") %>%
+  as.matrix()
+
+# add row names and column names
+rownames(y)<- y[,1]
+y <- y[,-1]
+
+movie_titles <- train_set %>% 
+  select(movieId, title) %>%
+  distinct()
+
+colnames(y) <- with(movie_titles, title[match(colnames(y), movieId)])
+
+# convert them to residuals by removing the column and row effects
+y <- sweep(y, 2, colMeans(y, na.rm=TRUE))
+y <- sweep(y, 1, rowMeans(y, na.rm=TRUE))
 
 
+# select 10 random movies with short names to check their correlation:
 
+# TODO: To check, that sampled titles in the matrix
+
+short_titles <- movie_titles %>% filter(nchar(title) < 20) %>% pull(title)
+action_sample <- train_set %>% filter(title %in% short_titles & grepl("Action", genres)) %>% pull(title) %>% unique()
+documentary_sample <- train_set %>% filter(title %in% short_titles & grepl("Documentary", genres)) %>% pull(title) %>% unique()
+children_sample <- train_set %>% filter(title %in% short_titles & grepl("Children", genres)) %>% pull(title) %>% unique()
+
+
+rand_movies <- sample(action_sample, 6)
+rand_movies <- append(rand_movies, sample(documentary_sample, 3))
+
+#, , sample(children_sample, 2))
+
+rand_movies <- c("Killing Zoe (1994)", "True Lies (1994)", "Grass (1999)", "Everest (1998)", "December 7th (1943)")
+
+y[, rand_movies] 
+
+x <- y[, rand_movies]
+c <- cor(x, use="pairwise.complete")
+
+
+corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.col="black", tl.srt=45, tl.cex = 0.6)
+title("Correlations between genres", line = 3, font.main = 1)
 
 # trying recosystem
 
