@@ -492,7 +492,7 @@ colnames(genres_df) <- names
 # check if we can remove some non indicative genres
 # build correlation matrix
 
-corrplot(cor(genres_df), method="color", number.cex=0.7, type="upper", diag=FALSE,
+corrplot(cor(genres_df), method="color", number.cex=0.6, type="upper", diag=FALSE,
          mar=c(0,0,1.5 ,0), tl.col="black", addCoef.col = "black")
 title("Correlations between genres", line = 3, font.main = 1)
 # some meaningful correlation only between genres Children and Animation
@@ -1035,8 +1035,13 @@ x <- y[, sample_movies]
 c <- cor(x, use="pairwise.complete")
 
 
-corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.col="black", tl.srt=45, tl.cex = 0.75)
+
+
+corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.col="black", tl.srt=45, tl.cex = 0.75,
+          number.cex=0.7, addCoef.col = "black")
 title("Correlations between movies", line = 3, font.main = 1)
+
+
 
 # we can see some strong correlations between some movies
 # That makes sense, that people who loves Sex and the City also like Titanic, e.g.
@@ -1203,3 +1208,23 @@ validation %>% cbind(validation_predict) %>%
 
 
 # Most of the time we are not so far from real rating
+
+
+
+
+
+
+# Save all plots for checking
+# This section is for testing
+plots.dir.path <- list.files(tempdir(), pattern="rs-graphics", full.names = TRUE); 
+plots.png.paths <- list.files(plots.dir.path, pattern=".png", full.names = TRUE)
+
+file.copy(from=plots.png.paths, to="plots_to_check/")
+
+plots.png.detials <- file.info(plots.png.paths)
+plots.png.detials <- plots.png.detials[order(plots.png.detials$mtime),]
+sorted.png.names <- gsub(plots.dir.path, "plots_to_check/", row.names(plots.png.detials), fixed=TRUE)
+numbered.png.names <- paste0("plots_to_check/", 1:length(sorted.png.names), ".png")
+
+# Rename all the .png files as: 1.png, 2.png, 3.png, and so on.
+file.rename(from=sorted.png.names, to=numbered.png.names)
