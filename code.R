@@ -1058,6 +1058,12 @@ title("Correlations between movies", line = 3, font.main = 1)
 # using it we can solve our task based only by userId and MovieId and because it uses low-level CPU instruction,
 # we can build a model on an avarage laptop with meaningful time
 
+
+
+# remove temporary variables
+rm(c, x, y, action, children, romance, sample_movies, movie_titles, train_small)
+
+
 # 
 # # find all users who rated Jungle Book
 # jb_users <- train_small %>% filter(title == "Jungle Book, The (1994)") %>%
