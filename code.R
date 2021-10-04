@@ -949,9 +949,139 @@ rm(lambdas, lambda, predicted_ratings, mu, rmses)
 # RMSE(y_hat_loess, test_set$rating)
 
 
+# Principal Component Analysis
+
+# our model Yui = u + bi+ bu + e
+
+# groups of movies have similar rating patterns and groups of users have similar rating patterns as well.
+# residuals: rui = yui - bi - bu
+
+#convert the data into a matrix so that each user gets a row, each movie gets a column, and  
+# yui is the entry in row u and column i.
+
+train_small <- train_set %>% 
+  group_by(movieId) %>%
+  filter(n() >= 50) %>% ungroup() %>% 
+  group_by(userId) %>%
+  filter(n() >= 50) %>% ungroup()
+
+y <- train_small %>% 
+  select(userId, movieId, rating) %>%
+  pivot_wider(names_from = "movieId", values_from = "rating") %>%
+  as.matrix()
+
+# add row names and column names
+rownames(y)<- y[,1]
+y <- y[,-1]
+
+movie_titles <- train_set %>% 
+  select(movieId, title) %>%
+  distinct()
+
+colnames(y) <- with(movie_titles, title[match(colnames(y), movieId)])
 
 
+# convert them to residuals by removing the column and row effects
+y <- sweep(y, 2, colMeans(y, na.rm=TRUE))
+y <- sweep(y, 1, rowMeans(y, na.rm=TRUE))
 
+
+# select 10 random movies with short names to check their correlation:
+
+# TODO: To check, that sampled titles in the matrix
+# 
+# # with short title, to better visualisation
+# short_titles <- colnames(y)[which(nchar(colnames(y)) < 25)]
+# # keep only popular movies with 1000 or more ratings - mostly they are familiar to reader
+# short_titles <- data.frame(title = short_titles) %>% 
+#                 inner_join(train_set, by = "title") %>% 
+#                 group_by(title) %>%
+#                 summarise(n = n(), aver_rating = mean(rating)) %>%
+#                 filter(n > 3000, aver_rating > 3.5) %>%
+#                 pull(title)
+#                   
+
+
+# select 12 well known movies
+
+children <- c("Jungle Book, The (1994)", "101 Dalmatians (1996)", "Aladdin (1992)", "Home Alone (1990)")
+action <- c("Matrix, The (1999)", "Terminator, The (1984)", "Time Machine, The (2002)", "Fifth Element, The (1997)")
+romance <- c("Sex and the City (2008)", "Lake House, The (2006)", "Titanic (1997)", "Terminal, The (2004)")
+
+# action <- train_set %>% filter(title %in% short_titles & grepl("Action", genres)) %>% pull(title) %>% unique()
+# romance <- train_set %>% filter(title %in% short_titles & grepl("Romance", genres)) %>% pull(title) %>% unique()
+# children <- train_set %>% filter(title %in% short_titles & grepl("Children", genres)) %>% pull(title) %>% unique()
+
+
+sample_movies <- c(children, action, romance)
+train_small %>% filter(title %in% sample_movies) %>%
+                group_by(title) %>%
+                summarise(title, rating = mean(rating), genres = genres) %>%
+                unique()
+
+
+# remove year from title
+str_sub(sample_movies,-7,-1) <- ""
+
+# also in y
+str_sub(colnames(y),-7,-1) <- ""
+
+x <- y[, sample_movies]
+c <- cor(x, use="pairwise.complete")
+
+
+corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.col="black", tl.srt=45, tl.cex = 0.75)
+title("Correlations between movies", line = 3, font.main = 1)
+
+# we can see some strong correlations between some movies
+# That makes sense, that people who loves Sex and the City also like Titanic, e.g.
+# The Matrix has stronger correlation with Terminator and Fifth Element, compare to Sex and the City or Titanic
+
+
+# There is recosystem package for R, which uses matrix factorization.
+# Recosystem is the wrapper of the 'libmf' library
+# LIBMF is an open source tool for approximating an incomplete matrix using the product of two matrices in a latent space. 
+# Main features of LIBMF include:
+# 
+# providing solvers for real-valued matrix factorization, binary matrix factorization, and one-class matrix factorization
+# parallel computation in a multi-core machine
+# using CPU instructions (e.g., SSE) to accelerate vector operations
+# taking less than 20 minutes to converge to a reasonable level on a data set of 1.7B ratings
+# cross validation for parameter selection
+# supporting disk-level training, which largely reduces the memory usage
+
+# using it we can solve our task based only by userId and MovieId and because it uses low-level CPU instruction,
+# we can build a model on an avarage laptop with meaningful time
+
+# 
+# # find all users who rated Jungle Book
+# jb_users <- train_small %>% filter(title == "Jungle Book, The (1994)") %>%
+#                   select(userId, rating) %>% rename(jb_rating = rating)
+# 
+# # how many of them also rated Sex and the city
+# jb_ss_users <- train_small %>%
+#                 filter(title == "Sex and the City (2008)", userId %in% jb_users$userId) %>%
+#                 select(userId, rating) %>% rename(ss_rating = rating)
+# 
+# 
+# 
+# 
+# # how many of them also rated Matrix
+# jb_ss_m_users <- train_small %>%
+#   filter(title == "Matrix, The (1999)", userId %in% jb_ss_users$userId) %>%
+#   select(userId, rating) %>% rename(m_rating = rating)
+# 
+# # # how many of them also rated Terminal
+# # jb_ss_t_users <- train_small %>%
+# #   filter(title == "Terminal, The (2004)", userId %in% jb_ss_users$userId) %>%
+# #   select(userId, rating) %>% rename(t_rating = rating)
+# 
+# # compare ratings
+# three_movies_rating <- jb_users %>%
+#                       inner_join(jb_ss_users, by = "userId" ) %>%
+#                       inner_join(jb_ss_m_users, by = "userId" )
+# 
+# cor(three_movies_rating, use="pairwise.complete")
 
 # trying recosystem
 
