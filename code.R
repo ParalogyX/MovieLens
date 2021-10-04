@@ -1212,19 +1212,21 @@ validation %>% cbind(validation_predict) %>%
 
 
 
-
-
-# Save all plots for checking
-# This section is for testing
-plots.dir.path <- list.files(tempdir(), pattern="rs-graphics", full.names = TRUE); 
-plots.png.paths <- list.files(plots.dir.path, pattern=".png", full.names = TRUE)
-
-file.copy(from=plots.png.paths, to="plots_to_check/")
-
-plots.png.detials <- file.info(plots.png.paths)
-plots.png.detials <- plots.png.detials[order(plots.png.detials$mtime),]
-sorted.png.names <- gsub(plots.dir.path, "plots_to_check/", row.names(plots.png.detials), fixed=TRUE)
-numbered.png.names <- paste0("plots_to_check/", 1:length(sorted.png.names), ".png")
-
-# Rename all the .png files as: 1.png, 2.png, 3.png, and so on.
-file.rename(from=sorted.png.names, to=numbered.png.names)
+# 
+# 
+# # Save all plots for checking
+# # This section is for testing
+# plots.dir.path <- list.files(tempdir(), pattern="rs-graphics", full.names = TRUE); 
+# plots.png.paths <- list.files(plots.dir.path, pattern=".png", full.names = TRUE)
+# 
+# file.copy(from=plots.png.paths, to="plots_to_check/")
+# 
+# plots.png.detials <- file.info(plots.png.paths)
+# plots.png.detials <- plots.png.detials[order(plots.png.detials$mtime),]
+# sorted.png.names <- gsub(plots.dir.path, "plots_to_check/", row.names(plots.png.detials), fixed=TRUE)
+# numbered.png.names <- paste0("plots_to_check/", 1:length(sorted.png.names), ".png")
+# 
+# # Rename all the .png files as: 1.png, 2.png, 3.png, and so on.
+# file.rename(from=sorted.png.names, to=numbered.png.names)
+# 
+# rm(numbered.png.names, plots.dir.path, plots.png.paths, sorted.png.names, plots.png.detials)
