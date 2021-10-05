@@ -1103,7 +1103,7 @@ reco_train <- with(reco_train,
 
 # train model with default parameters
 
-r$train(reco_train, opts = c(niter = 50))
+r$train(reco_train, opts = c(niter = 20))
 
 # test
 reco_test <- test_set %>%
