@@ -969,9 +969,9 @@ rm(lambdas, lambda, predicted_ratings, mu, rmses)
 
 train_small <- train_set %>% 
   group_by(movieId) %>%
-  filter(n() >= 50) %>% ungroup() %>% 
+  filter(n() >= 2000) %>% ungroup() %>% 
   group_by(userId) %>%
-  filter(n() >= 50) %>% ungroup()
+  filter(n() >= 150) %>% ungroup()
 
 y <- train_small %>% 
   select(userId, movieId, rating) %>%
@@ -1010,43 +1010,61 @@ y <- sweep(y, 1, rowMeans(y, na.rm=TRUE))
 #                   
 
 
-# select 12 well known movies
-
-children <- c("Jungle Book, The (1994)", "101 Dalmatians (1996)", "Aladdin (1992)", "Home Alone (1990)")
-action <- c("Matrix, The (1999)", "Terminator, The (1984)", "Time Machine, The (2002)", "Fifth Element, The (1997)")
-romance <- c("Sex and the City (2008)", "Lake House, The (2006)", "Titanic (1997)", "Terminal, The (2004)")
-
-# action <- train_set %>% filter(title %in% short_titles & grepl("Action", genres)) %>% pull(title) %>% unique()
-# romance <- train_set %>% filter(title %in% short_titles & grepl("Romance", genres)) %>% pull(title) %>% unique()
-# children <- train_set %>% filter(title %in% short_titles & grepl("Children", genres)) %>% pull(title) %>% unique()
-
-
-sample_movies <- c(children, action, romance)
-train_small %>% filter(title %in% sample_movies) %>%
-                group_by(title) %>%
-                summarise(title, rating = mean(rating), genres = genres) %>%
-                unique()
-
-
-# remove year from title
-str_sub(sample_movies,-7,-1) <- ""
-
-# also in y
-str_sub(colnames(y),-7,-1) <- ""
-
-x <- y[, sample_movies]
-c <- cor(x, use="pairwise.complete")
-
-
-
-
-corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.col="black", tl.srt=45, tl.cex = 0.75,
-          number.cex=0.7, addCoef.col = "black")
-title("Correlations between movies", line = 3, font.main = 1)
+# # select 12 well known movies
+# 
+# children <- c("Jungle Book, The (1994)", "101 Dalmatians (1996)", "Aladdin (1992)", "Home Alone (1990)")
+# action <- c("Matrix, The (1999)", "Terminator, The (1984)", "Time Machine, The (2002)", "Fifth Element, The (1997)")
+# romance <- c("Sex and the City (2008)", "Lake House, The (2006)", "Titanic (1997)", "Terminal, The (2004)")
+# 
+# # action <- train_set %>% filter(title %in% short_titles & grepl("Action", genres)) %>% pull(title) %>% unique()
+# # romance <- train_set %>% filter(title %in% short_titles & grepl("Romance", genres)) %>% pull(title) %>% unique()
+# # children <- train_set %>% filter(title %in% short_titles & grepl("Children", genres)) %>% pull(title) %>% unique()
+# 
+# 
+# sample_movies <- c(children, action, romance)
+# train_small %>% filter(title %in% sample_movies) %>%
+#                 group_by(title) %>%
+#                 summarise(title, rating = mean(rating), genres = genres) %>%
+#                 unique()
+# 
+# 
+# # remove year from title
+# str_sub(sample_movies,-7,-1) <- ""
+# 
+# # also in y
+# str_sub(colnames(y),-7,-1) <- ""
+# 
+# x <- y[, sample_movies]
+# c <- cor(x, use="pairwise.complete")
+# 
+# 
+# 
+# 
+# corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.col="black", tl.srt=45, tl.cex = 0.75,
+#           number.cex=0.7, addCoef.col = "black")
+# title("Correlations between movies", line = 3, font.main = 1)
 
 pca_md <- imputePCA(y, ncp = 3)
 y_md <- pca_md$completeObs
 pca <- prcomp(y_md)
+
+
+ggplot(aes(1:length(pca$sdev), (pca$sdev^2 / sum(pca$sdev^2))), data = NULL) + geom_point() +
+  scale_y_continuous(name = "variance explained", limits = c(0,0.3)) + xlab("PC") +
+  ggtitle("Variance explained by Principal Components")
+
+
+# visualize the structure 
+pca$rotation %>% as.data.frame() %>% mutate(titles = rownames(.)) %>% 
+  sample_n(20) %>%
+  ggplot(aes(PC1, PC2, label = titles)) + geom_point() + ggrepel::geom_text_repel(size = 3) +
+  ggtitle("Movies", subtitle = "on PC1 and PC2")
+# PC1: Sci-Fi/ Fantasy vs. Musical/ Romance
+# PC2: Kid's movies vs. adult movies
+# We see the concept behind matrix factorization. We try to explain the matrix (= the ratings) by searching 
+# for similarities between users and similarities between genres/movies
+
+
 
 # we can see some strong correlations between some movies
 # That makes sense, that people who loves Sex and the City also like Titanic, e.g.
