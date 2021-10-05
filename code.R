@@ -21,6 +21,7 @@ if(!require(pheatmap)) install.packages("pheatmap", repos = "http://cran.us.r-pr
 if(!require(corrplot)) install.packages("corrplot", repos = "http://cran.us.r-project.org")
 if(!require(recosystem)) install.packages("recosystem", repos = "http://cran.us.r-project.org")
 if(!require(gridExtra)) install.packages("gridExtra", repos = "http://cran.us.r-project.org")
+if(!require(missMDA)) install.packages("missMDA", repos = "http://cran.us.r-project.org")
 
 # loading libraries
 library(tidyverse)
@@ -33,6 +34,8 @@ library(pheatmap)
 library(corrplot)
 library(recosystem)
 library(gridExtra)
+library(missMDA)
+
 
 ###########################################################
 # Create edx set, validation set (final hold-out test set)#
@@ -1041,7 +1044,9 @@ corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.co
           number.cex=0.7, addCoef.col = "black")
 title("Correlations between movies", line = 3, font.main = 1)
 
-
+pca_md <- imputePCA(y, ncp = 3)
+y_md <- pca_md$completeObs
+pca <- prcomp(y_md)
 
 # we can see some strong correlations between some movies
 # That makes sense, that people who loves Sex and the City also like Titanic, e.g.
