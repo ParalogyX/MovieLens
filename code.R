@@ -969,19 +969,26 @@ rm(lambdas, lambda, predicted_ratings, mu, rmses)
 
 train_small <- train_set %>% 
   group_by(movieId) %>%
-  filter(n() >= 2000) %>% ungroup() %>% 
+  filter(n() >= 3000) %>% ungroup() %>% 
   group_by(userId) %>%
-  filter(n() >= 150) %>% ungroup()
+  filter(n() >= 250) %>% ungroup()
 
 y <- train_small %>% 
   select(userId, movieId, rating) %>%
   pivot_wider(names_from = "movieId", values_from = "rating") %>%
   as.matrix()
+# 
+# genres_shorts <- train_set %>% 
+#   select(movieId, genres, title) %>%
+#   distinct() %>% mutate(genres = paste(genres, title, sep = "\n"))
+# 
+
 
 # add row names and column names
 rownames(y)<- y[,1]
 y <- y[,-1]
 
+# name columns as movie title, instead of movieId
 movie_titles <- train_set %>% 
   select(movieId, title) %>%
   distinct()
@@ -994,71 +1001,34 @@ y <- sweep(y, 2, colMeans(y, na.rm=TRUE))
 y <- sweep(y, 1, rowMeans(y, na.rm=TRUE))
 
 
-# select 10 random movies with short names to check their correlation:
-
-# TODO: To check, that sampled titles in the matrix
-# 
-# # with short title, to better visualisation
-# short_titles <- colnames(y)[which(nchar(colnames(y)) < 25)]
-# # keep only popular movies with 1000 or more ratings - mostly they are familiar to reader
-# short_titles <- data.frame(title = short_titles) %>% 
-#                 inner_join(train_set, by = "title") %>% 
-#                 group_by(title) %>%
-#                 summarise(n = n(), aver_rating = mean(rating)) %>%
-#                 filter(n > 3000, aver_rating > 3.5) %>%
-#                 pull(title)
-#                   
-
-
-# # select 12 well known movies
-# 
-# children <- c("Jungle Book, The (1994)", "101 Dalmatians (1996)", "Aladdin (1992)", "Home Alone (1990)")
-# action <- c("Matrix, The (1999)", "Terminator, The (1984)", "Time Machine, The (2002)", "Fifth Element, The (1997)")
-# romance <- c("Sex and the City (2008)", "Lake House, The (2006)", "Titanic (1997)", "Terminal, The (2004)")
-# 
-# # action <- train_set %>% filter(title %in% short_titles & grepl("Action", genres)) %>% pull(title) %>% unique()
-# # romance <- train_set %>% filter(title %in% short_titles & grepl("Romance", genres)) %>% pull(title) %>% unique()
-# # children <- train_set %>% filter(title %in% short_titles & grepl("Children", genres)) %>% pull(title) %>% unique()
-# 
-# 
-# sample_movies <- c(children, action, romance)
-# train_small %>% filter(title %in% sample_movies) %>%
-#                 group_by(title) %>%
-#                 summarise(title, rating = mean(rating), genres = genres) %>%
-#                 unique()
-# 
-# 
-# # remove year from title
-# str_sub(sample_movies,-7,-1) <- ""
-# 
-# # also in y
-# str_sub(colnames(y),-7,-1) <- ""
-# 
-# x <- y[, sample_movies]
-# c <- cor(x, use="pairwise.complete")
-# 
-# 
-# 
-# 
-# corrplot(c, method="color", type="upper", mar=c(0,0,1.5 ,0), diag = FALSE, tl.col="black", tl.srt=45, tl.cex = 0.75,
-#           number.cex=0.7, addCoef.col = "black")
-# title("Correlations between movies", line = 3, font.main = 1)
-
+# impute dataset with PCA
 pca_md <- imputePCA(y, ncp = 3)
 y_md <- pca_md$completeObs
+# perform Principal Components Analysis on it
 pca <- prcomp(y_md)
 
+# plot variance explained by principal components
+ggplot(aes(1:length(pca$sdev), (pca$sdev^2 / sum(pca$sdev^2))*100), data = NULL) + geom_point() +
+  scale_y_continuous(name = "variance explained", limits = c(0,30)) + xlab("PCs") +
+  xlim(0, 8) + geom_line() +
+  ggtitle("Variance explained by Principal Components")+
+  theme(plot.title = element_text(hjust = 0.5))
 
-ggplot(aes(1:length(pca$sdev), (pca$sdev^2 / sum(pca$sdev^2))), data = NULL) + geom_point() +
-  scale_y_continuous(name = "variance explained", limits = c(0,0.3)) + xlab("PC") +
-  ggtitle("Variance explained by Principal Components")
 
+# visualize the structure on some well-known movies
+sample_movies <- c("Bourne", "Star Trek", "Truman Show", "Beauty and the Beast",
+                   "Pulp Fiction", "Matrix", "Harry Potter", "Goldfinger", "Mary Poppins", "Jumanji",
+                   "Shawshank Redemption", "Piano", "Trainspotting", "Birds", "Toy Story", "Contact")
 
-# visualize the structure 
 pca$rotation %>% as.data.frame() %>% mutate(titles = rownames(.)) %>% 
-  sample_n(20) %>%
+  filter(grepl(paste(sample_movies, collapse='|'), titles)) %>%
   ggplot(aes(PC1, PC2, label = titles)) + geom_point() + ggrepel::geom_text_repel(size = 3) +
-  ggtitle("Movies", subtitle = "on PC1 and PC2")
+  ggtitle("Movies on PC1 and PC2") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
 # PC1: Sci-Fi/ Fantasy vs. Musical/ Romance
 # PC2: Kid's movies vs. adult movies
 # We see the concept behind matrix factorization. We try to explain the matrix (= the ratings) by searching 
@@ -1089,7 +1059,7 @@ pca$rotation %>% as.data.frame() %>% mutate(titles = rownames(.)) %>%
 
 
 # remove temporary variables
-rm(c, x, y, action, children, romance, sample_movies, movie_titles, train_small)
+rm(pca_md, y_md, pca, y, sample_movies, movie_titles, train_small)
 
 
 # 
