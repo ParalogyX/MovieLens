@@ -30,17 +30,17 @@ cat("\014")
 ###########################################################
 
 # library installations if needed:
-if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
-if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
-if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
-if(!require(lubridate)) install.packages("lubridate", repos = "http://cran.us.r-project.org")
-if(!require(Matrix)) install.packages("lubridate", repos = "http://cran.us.r-project.org")
-if(!require(stringr)) install.packages("stringr", repos = "http://cran.us.r-project.org")
-if(!require(pheatmap)) install.packages("pheatmap", repos = "http://cran.us.r-project.org")
-if(!require(corrplot)) install.packages("corrplot", repos = "http://cran.us.r-project.org")
-if(!require(recosystem)) install.packages("recosystem", repos = "http://cran.us.r-project.org")
-if(!require(gridExtra)) install.packages("gridExtra", repos = "http://cran.us.r-project.org")
-if(!require(missMDA)) install.packages("missMDA", repos = "http://cran.us.r-project.org")
+if(!require(tidyverse)) install.packages("tidyverse")
+if(!require(caret)) install.packages("caret")
+if(!require(data.table)) install.packages("data.table")
+if(!require(lubridate)) install.packages("lubridate")
+if(!require(Matrix)) install.packages("lubridate")
+if(!require(stringr)) install.packages("stringr")
+if(!require(pheatmap)) install.packages("pheatmap")
+if(!require(corrplot)) install.packages("corrplot")
+if(!require(recosystem)) install.packages("recosystem")
+if(!require(gridExtra)) install.packages("gridExtra")
+if(!require(missMDA)) install.packages("missMDA")
 
 # loading libraries
 library(tidyverse)
@@ -991,14 +991,22 @@ y <- sweep(y, 1, rowMeans(y, na.rm=TRUE))
 # impute dataset with PCA
 pca_md <- imputePCA(y, ncp = 3)
 y_md <- pca_md$completeObs
-# perform Principal Components Analysis on it
+# perform Principal Components Analysis on the imputed data set
 pca <- prcomp(y_md)
 
-# plot variance explained by principal components
-ggplot(aes(1:length(pca$sdev), (pca$sdev^2 / sum(pca$sdev^2))*100), data = NULL) + geom_point() +
-  scale_y_continuous(name = "variance explained", limits = c(0,30)) + xlab("PCs") +
-  xlim(0, 8) + geom_line() +
+# plot variance explained by each of principal components
+ggplot(aes(1:length(pca$sdev), (pca$sdev^2 / sum(pca$sdev^2))*100), data = NULL) + geom_col() +
+  scale_y_continuous(name = "% variance explained", limits = c(0,15)) + xlab("PCs") +
+  xlim(0, 30) + 
   ggtitle("Variance explained by Principal Components")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# plot cumulative variance explained by principal components
+ggplot(aes(1:length(pca$sdev), cumsum(pca$sdev^2 / sum(pca$sdev^2))*100), data = NULL) + 
+  geom_point(alpha = 0.5, size = 1) +
+  scale_y_continuous(name = "% variance explained", limits = c(0,100)) + xlab("PCs") +
+  xlim(0, length(pca$sdev)) + geom_line() +
+  ggtitle("Cumulative variance explained by Principal Components")+
   theme(plot.title = element_text(hjust = 0.5))
 
 
