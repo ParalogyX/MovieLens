@@ -3,6 +3,25 @@
 #         Movielens recommendation system                 #
 ###########################################################
 
+
+##########################################################
+#            READ THIS BEFORE RUN THE CODE!!!            #
+#                                                        #
+#     1. Check your R version (type "R.version.string")  #
+# in console and comment/uncomment code blocks which are #
+#            corresponding to your version.              #
+# These version dependent code blocks are located in     #
+#             lines 72-80 and line 89                    #
+#                                                        #
+#                                                        #
+#       Run complete code with console output            #
+#     can take 30-60 minutes, depends on laptop          #
+#                                                        #
+# Code itself is well commented as code, for theoretical #
+#     background please look in report.pdf               #
+##########################################################
+
+
 # clear console output
 cat("\014")
 
@@ -127,7 +146,7 @@ edx %>% ggplot(aes(rating)) +
   ggtitle("Distibution of movie ratings") +
   theme(plot.title = element_text(hjust = 0.5)) 
 
-#Comparing rating types: negative if <= mean, positive if > mean
+# comparing rating types: negative if <= mean, positive if > mean
 edx %>%
   mutate(rating_type = if_else(rating > mean(rating), "postitive",
                                "negative")) %>%
@@ -135,7 +154,7 @@ edx %>%
   count()
 
 
-#Comparing half star and whole star ratings
+# comparing half star and whole star ratings
 edx %>%
   mutate(rating_star = if_else(!rating %%1, "whole_star",
                                "half_star")) %>%
@@ -214,7 +233,7 @@ edx %>% group_by(movieId) %>%
 # that can explain our observation of top 10 movies: very high and very low average movie rating can be done based on very few reviews,
 # or even one review. This can't be reliable and will be taken in account when building a prediction model.
 
-# Plotting movie distribution by mean rating
+# plotting movie distribution by mean rating
 edx %>% group_by(movieId) %>% 
   summarise(average_movie_ratings  = mean(rating)) %>%
   ggplot(aes(average_movie_ratings)) +
@@ -225,7 +244,7 @@ edx %>% group_by(movieId) %>%
   theme(plot.title = element_text(hjust = 0.5))
 
 
-# Effect of the number of movie ratings on average rating of this movie
+# effect of the number of movie ratings on average rating of this movie
 edx %>% group_by(movieId) %>% 
   summarise(number_of_ratings  = n(), avg_rating = mean(rating)) %>% 
   ggplot(aes(number_of_ratings,avg_rating)) +
@@ -239,12 +258,12 @@ edx %>% group_by(movieId) %>%
 # We can see, that more often rated movies are also have slightly higher average rating
 # and smaller standard deviation
 
-# Top 10 movies by number of ratings:
+# top 10 movies by number of ratings:
 edx %>% group_by(movieId) %>% 
   summarise(number_of_ratings  = n(), avg_rating = mean(rating), title = title) %>% 
   arrange(desc(number_of_ratings)) %>% distinct() %>% head(10)
 
-# Bottom 10 movies by number of ratings:
+# bottom 10 movies by number of ratings:
 edx %>% group_by(movieId) %>% 
   summarise(number_of_ratings  = n(), avg_rating = mean(rating), title = title) %>% 
   arrange(number_of_ratings) %>% distinct() %>% head(10)
@@ -268,7 +287,7 @@ edx %>% group_by(userId) %>%
 # We can see, that about half of users rated less than approximately 65 movies
 # We will also take it in account for building model
 
-# Plotting user distribution by mean rating of user
+# plotting user distribution by mean rating of user
 edx %>% group_by(userId) %>% 
   summarise(average_user_ratings  = mean(rating)) %>%
   ggplot(aes(average_user_ratings)) +
@@ -278,7 +297,7 @@ edx %>% group_by(userId) %>%
   ggtitle("Distribution of users by mean rating of user") +
   theme(plot.title = element_text(hjust = 0.5))
 
-# Finding distribution of users by star type
+# finding distribution of users by star type
 edx %>%
   mutate(rating_star = ifelse(!rating %%1,
                               "whole_star", "half_star")) %>%
@@ -286,7 +305,7 @@ edx %>%
   summarise(n_users = n_distinct(userId))
 
 
-# Effect of the number of movies rated by User on average rating by this user (for users who rated 100 or more movies)
+# effect of the number of movies rated by User on average rating by this user (for users who rated 100 or more movies)
 edx %>% group_by(userId) %>% 
   filter(n() >= 100) %>%
   summarise(number_of_ratings_by_user  = n(), avg_rating_by_user = mean(rating)) %>% 
@@ -298,12 +317,12 @@ edx %>% group_by(userId) %>%
   ylab("Average rating by user") +
   theme(plot.title = element_text(hjust = 0.5)) 
 
-# Top 10 users by number of ratings:
+# top 10 users by number of ratings:
 edx %>% group_by(userId) %>% 
   summarise(number_of_ratings_by_user  = n(), avg_rating_by_user = mean(rating)) %>% 
   arrange(desc(number_of_ratings_by_user)) %>% distinct() %>% head(10)
 
-# Bottom 10 users by number of ratings:
+# bottom 10 users by number of ratings:
 edx %>% group_by(userId) %>% 
   summarise(number_of_ratings_by_user  = n(), avg_rating_by_user = mean(rating)) %>% 
   arrange(number_of_ratings_by_user) %>% distinct() %>% head(10)
@@ -324,11 +343,11 @@ edx <- edx %>%
          day_rated = weekdays(as_datetime(timestamp))) %>% 
   select(-timestamp)
 
-# Released year range
+# released year range
 min(edx$year_released)
 max(edx$year_released)
 
-# How many movies were released each year
+# how many movies were released each year
 year_distr1 <- edx %>% distinct(year_released, movieId) %>% 
                     group_by(year_released) %>%
                     summarise(number_of_movies = n()) %>%
@@ -338,7 +357,7 @@ year_distr1 <- edx %>% distinct(year_released, movieId) %>%
                     ggtitle("Distribution of movies by released year") +
                     theme(plot.title = element_text(hjust = 0.5))
 
-# How many ratings for movies released each year
+# how many ratings for movies released each year
 
 year_distr2 <- edx %>% 
                   ggplot(aes(year_released)) +
@@ -351,9 +370,10 @@ year_distr2 <- edx %>%
   
 grid.arrange(year_distr1, year_distr2, nrow=2)
 
+# remove variables which we don't need anymore
 rm(year_distr1, year_distr2)
 
-# Effect of released year of movieId on rating
+# effect of released year of movieId on rating
 seperate_year_released <- edx %>% group_by(year_released) %>% 
   summarise(year_released_rating = mean(rating)) %>% arrange(desc(year_released_rating))
 
@@ -367,12 +387,12 @@ seperate_year_released %>%
   ylab("Average rating") +
   theme(plot.title = element_text(hjust = 0.5))
 
-#Movies released in 1940-1960 have higher average rating 
+# Movies released in 1940-1960 have higher average rating 
 
 
 # Effect of rating year, month and day of the week on average rating
 
-#Year
+# year
 year_of_rating <- edx %>% group_by(year_rated) %>% 
   summarise(year_rated_rating = mean(rating)) %>% arrange(desc(year_rated_rating))
 
@@ -388,7 +408,7 @@ year_of_rating %>%
 # first year when movie was rated is
 min(year_of_rating$year_rated)
 
-#month
+# month
 month_of_rating <- edx %>% group_by(month_rated) %>% 
   summarise(month_rated_rating = mean(rating)) %>% arrange(desc(month_rated_rating))
 
@@ -403,7 +423,7 @@ month_of_rating %>%
   theme(plot.title = element_text(hjust = 0.5))
 
 
-#day
+# day
 day_of_rating <- edx %>% group_by(day_rated) %>% 
   summarise(day_rated_rating = mean(rating))
 
@@ -439,7 +459,7 @@ edx %>% group_by(genres) %>%
 # as we can see, many genres combinations have very few ratings,
 # therefore we will split them to separate genres
 
-# Relation of type of genres on average of rating 
+# relation of type of genres on average of rating 
 separated_genres <- edx %>% separate_rows(genres, sep = "\\|") %>%
   group_by(genres) %>%
   summarise(number_of_ratings = n(), avg_rating = mean(rating))
@@ -513,9 +533,6 @@ rm(genres_columns, separated_genres, combined_genres, names)
 # column timestamp already was replaced by columns 
 # "year_rated", "month_rated" and "day_rated"
 
-
-
-
 # our dataset is large enough therefore we can use train-test split (or hold out) approach for cross-validation
 # before model building, training and selection we need to split our dataset to train and test subsets:
 # test set will be 30% of all the data
@@ -561,6 +578,7 @@ movie_avgs <- train_set %>%
   group_by(movieId) %>% 
   summarize(b_i = mean(rating - mu))
 
+# plotting movies biases
 movie_avgs %>% ggplot(aes(b_i)) +
   geom_histogram(bins = 10,col = "black") +
   ylab("Count") +
@@ -568,18 +586,18 @@ movie_avgs %>% ggplot(aes(b_i)) +
   ggtitle("Distribution of movies biases") +
   theme(plot.title = element_text(hjust = 0.5))
 
+# predict on test-set
 predicted_ratings <- mu + test_set %>% 
   left_join(movie_avgs, by='movieId') %>%
   .$b_i
 
-
+# limiting rating 0.5 - 5.0, as we know real ratings can't be out of this range
 predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
 
+# add calculated RMSE to a table, for models comparison selection
 rmse_results <- bind_rows(rmse_results,
-
                           data.frame(method="Movie effect model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
-
 rmse_results
 
 
@@ -589,6 +607,7 @@ user_avgs <- train_set %>%
   group_by(userId) %>% 
   summarize(b_u = mean(rating - mu - b_i))
 
+# plotting users biases
 user_avgs %>% ggplot(aes(b_u)) +
   geom_histogram(bins = 10,col = "black") +
   ylab("Count") +
@@ -596,19 +615,22 @@ user_avgs %>% ggplot(aes(b_u)) +
   ggtitle("Distribution of users biases") +
   theme(plot.title = element_text(hjust = 0.5))
 
+# predict on test-set
 predicted_ratings <- test_set %>% 
   left_join(movie_avgs, by='movieId') %>%
   left_join(user_avgs, by='userId') %>%
   mutate(pred = mu + b_i + b_u) %>%
   .$pred
 
+# limiting rating 0.5 - 5.0, as we know real ratings can't be out of this range
 predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
 
+# add calculated RMSE to the table
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Movie + user effect model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
-
 rmse_results
+
 
 # include released year
 year_avgs <- train_set %>% 
@@ -617,6 +639,7 @@ year_avgs <- train_set %>%
   group_by(year_released) %>% 
   summarize(b_y = mean(rating - mu - b_i - b_u))
 
+# plotting years biases
 year_avgs %>% ggplot(aes(b_y)) +
   geom_histogram(bins = 10,col = "black") +
   ylab("Count") +
@@ -624,6 +647,7 @@ year_avgs %>% ggplot(aes(b_y)) +
   ggtitle("Distribution of released year biases") +
   theme(plot.title = element_text(hjust = 0.5))
 
+# predict on test-set
 predicted_ratings <- test_set %>% 
   left_join(movie_avgs, by='movieId') %>%
   left_join(user_avgs, by='userId') %>%
@@ -631,12 +655,13 @@ predicted_ratings <- test_set %>%
   mutate(pred = mu + b_i + b_u + b_y) %>%
   .$pred
 
+# limiting rating 0.5 - 5.0, as we know real ratings can't be out of this range
 predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
 
+# add calculated RMSE to the table
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Movie + user + year effect model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
-
 rmse_results
 
 # released year didn't give much improvement
@@ -650,6 +675,7 @@ genre_avgs <- train_set %>%
   group_by(genres) %>% 
   summarize(b_g = mean(rating - mu - b_i - b_u - b_y))
 
+# plotting genres biases
 genre_avgs %>% ggplot(aes(b_g)) +
   geom_histogram(bins = 30,col = "black") +
   ylab("Count") +
@@ -657,6 +683,7 @@ genre_avgs %>% ggplot(aes(b_g)) +
   ggtitle("Distribution of genres biases") +
   theme(plot.title = element_text(hjust = 0.5))
 
+# predict on test-set
 predicted_ratings <- test_set %>% 
   left_join(movie_avgs, by='movieId') %>%
   left_join(user_avgs, by='userId') %>%
@@ -665,19 +692,24 @@ predicted_ratings <- test_set %>%
   mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
   .$pred
 
-
+# limiting rating 0.5 - 5.0, as we know real ratings can't be out of this range
 predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
 
+# add calculated RMSE to the table
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Movie + user + year + genre Effect Model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
-
 rmse_results
 
 # remember that some movies were rated just few times and some users rated only few movies,
 # we need to regularize our model by implementing penalty large estimates which are formed using small sample sizes
 
+
+# find the best lambda (small sample size penalty)
 lambdas <- seq(0, 10, 0.25)
+
+# build models for different lambdas
+# train-test set cross validation is used, because dataset is relatively big
 rmses <- sapply(lambdas, function(l){
   
   mu <- mean(train_set$rating)
@@ -716,6 +748,7 @@ rmses <- sapply(lambdas, function(l){
   return(RMSE(predicted_ratings, test_set$rating))
 })
 
+# plot all lambdas against RMSE
 qplot(lambdas, rmses, main = "Different lambda versus RMSE") +
   theme(plot.title = element_text(hjust = 0.5))
 # which lambda makes best RMSE
@@ -723,8 +756,7 @@ lambda <- lambdas[which.min(rmses)]
 min(rmses)
 lambda
 
-# add regularized model
-
+# add regularized model with the best lambda
 b_i <- train_set %>% 
   group_by(movieId) %>%
   summarize(b_i = sum(rating - mu)/(n()+lambda))
@@ -748,7 +780,7 @@ b_g <- train_set %>%
   group_by(genres) %>%
   summarize(b_g = sum(rating - b_i - b_u - b_y - mu)/(n()+lambda))
 
-
+# predict on test-set
 predicted_ratings <- test_set %>% 
   left_join(b_i, by = "movieId") %>%
   left_join(b_u, by = "userId") %>%
@@ -757,17 +789,19 @@ predicted_ratings <- test_set %>%
   mutate(pred = mu + b_i + b_u + b_y + b_g) %>%
   .$pred
 
+# limiting rating 0.5 - 5.0, as we know real ratings can't be out of this range
 predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
- 
+
+# add calculated RMSE to the table
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Regularized movie + user + year + genre effect model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
-
 rmse_results
 
 
+# let's use add year and month of rating
 
-# regularisation of all predictors
+# regularization of all predictors
 lambdas <- seq(0, 10, 0.25)
 rmses <- sapply(lambdas, function(l){
 
@@ -825,7 +859,7 @@ rmses <- sapply(lambdas, function(l){
   return(RMSE(predicted_ratings, test_set$rating))
 })
 
-
+# plot all lambdas against RMSE
 qplot(lambdas, rmses, main = "Different lambda versus RMSE") +
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -835,8 +869,7 @@ min(rmses)
 lambda
 
 
-# add regularized model
-
+# add regularized model with the best lambda
 b_i <- train_set %>% 
   group_by(movieId) %>%
   summarize(b_i = sum(rating - mu)/(n()+lambda))
@@ -877,6 +910,7 @@ b_rm <- train_set %>%
   group_by(month_rated) %>%
   summarize(b_rm = sum(rating - b_i - b_u - b_y - b_g - b_ry - mu)/(n()+lambda))
 
+# predict on test-set
 predicted_ratings <- 
   test_set %>% 
   left_join(b_i, by = "movieId") %>%
@@ -888,73 +922,19 @@ predicted_ratings <-
   mutate(pred = mu + b_i + b_u + b_y + b_g + b_ry + b_rm) %>%
   pull(pred)
 
-
+# limiting rating 0.5 - 5.0, as we know real ratings can't be out of this range
 predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
 
+# add calculated RMSE to the table
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Regularized movie + user + year + genre + rating year and month effect model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
 rmse_results
 
 
-# # linear regression on biases
-# 
-# train_biases <- train_set %>% 
-#   left_join(b_i, by = "movieId") %>%
-#   left_join(b_u, by = "userId") %>%
-#   left_join(b_y, by = "year_released") %>%
-#   left_join(b_g, by = "genres")
-# 
-# # next line takes ~20 minutes to run
-# fit_lm <- train(rating ~ b_i + b_u + b_y + b_g, method = "lm", data = train_biases)
-# 
-# test_biases <- test_set %>% 
-#   left_join(b_i, by = "movieId") %>%
-#   left_join(b_u, by = "userId") %>%
-#   left_join(b_y, by = "year_released") %>%
-#   left_join(b_g, by = "genres")
-# 
-# 
-# predicted_ratings <- predict(fit_lm, test_biases, type = "raw")
-# predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
-# 
-# rmse_results <- bind_rows(rmse_results,
-#                           data.frame(method="Linear regression on regularized effect model",
-#                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
-# rmse_results
-
 # clean variable environment from variables which we will not use anymore
 rm(b_g, b_i, b_rm, b_ry, b_u, b_y, genre_avgs, genres_df, movie_avgs, user_avgs, year_avgs)
 rm(lambdas, lambda, predicted_ratings, mu, rmses)
-# try knn, rf and loess with default parameters
-
-# first read about different models for your data
-# and/or test on small subset
-
-
-
-# train_small_set <- sample_n(train_set, 100)
-# test_small_set <- sample_n(test_set, 100)
-
-# train_knn <- train(rating ~ userId + movieId + title + genres + year_released, method = "knn", data = train_small_set)
-# y_hat_knn <- predict(train_knn, test_small_set, type = "raw")
-
-# train_knn <- train(rating ~ b_i + b_u + b_y + b_g, method = "knn", data = model_df)
-# train_rf<- train(rating ~ b_i + b_u + b_y + b_g, method = "rf", data = model_df)
-# train_loess <- train(rating ~ b_i + b_u + b_y + b_g, method = "gamLoess", data = model_df)
-# 
-# y_hat_knn <- predict(train_knn, test_df, type = "raw")
-# y_hat_knn <- ifelse(y_hat_knn > 5, 5, ifelse(y_hat_knn < 0.5, 0.5, y_hat_knn))
-# 
-# y_hat_rf <- predict(train_rf, test_df, type = "raw")
-# y_hat_rf <- ifelse(y_hat_rf > 5, 5, ifelse(y_hat_rf < 0.5, 0.5, y_hat_rf))
-# 
-# y_hat_loess <- predict(train_loess, test_df, type = "raw")
-# y_hat_loess <- ifelse(y_hat_loess > 5, 5, ifelse(y_hat_loess < 0.5, 0.5, y_hat_loess))
-# 
-# RMSE(y_hat_knn, test_set$rating)
-# RMSE(y_hat_rf, test_set$rating)
-# RMSE(y_hat_loess, test_set$rating)
 
 
 # Principal Component Analysis
@@ -964,15 +944,19 @@ rm(lambdas, lambda, predicted_ratings, mu, rmses)
 # groups of movies have similar rating patterns and groups of users have similar rating patterns as well.
 # residuals: rui = yui - bi - bu
 
-#convert the data into a matrix so that each user gets a row, each movie gets a column, and  
+# convert the data into a matrix so that each user gets a row, each movie gets a column, and  
 # yui is the entry in row u and column i.
 
+# it takes a lot of time, therefore first try on small dataset
+
+# make small dataset with movies which were rated 50 or more times and users who rated 50 or more movies
 train_small <- train_set %>% 
   group_by(movieId) %>%
   filter(n() >= 3000) %>% ungroup() %>% 
   group_by(userId) %>%
   filter(n() >= 250) %>% ungroup()
 
+# convert it to matrix with users in rows, movies in columns ans ratings in cells
 y <- train_small %>% 
   select(userId, movieId, rating) %>%
   pivot_wider(names_from = "movieId", values_from = "rating") %>%
@@ -988,11 +972,14 @@ y <- train_small %>%
 rownames(y)<- y[,1]
 y <- y[,-1]
 
+
 # name columns as movie title, instead of movieId
+
 movie_titles <- train_set %>% 
   select(movieId, title) %>%
   distinct()
 
+# apply to columns
 colnames(y) <- with(movie_titles, title[match(colnames(y), movieId)])
 
 
