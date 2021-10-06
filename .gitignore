@@ -5,3 +5,5 @@
 ml-10M100K/
 .RDataTmp
 .RDataTmp1
+edx.rda
+validation.rda
