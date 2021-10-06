@@ -1,1 +1,305 @@
-//Here will be a report
+---
+title: "HarvardX Data Science program capstone project"
+author: "Vladimir Pedchenko"
+date: "10/6/2021"
+output: 
+  pdf_document: 
+    number_sections: yes
+    fig_caption: yes
+    df_print: paged
+    toc: yes
+    fig_height: 3
+    fig_crop: no
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This is a report of HarvardX Data Science program capstone project (PH125.9x).
+
+Goal of the project is to create a movie recommendation system using the MovieLens dataset. Recommender Systems (RSs) are software tools and techniques providing suggestions for items to be of use to a user[1]. It can be used in streaming services such YouTube or Netflix or in web-shops, to suggest user items which he/she, most likely, would buy.
+
+In this specific case, we will try to predict rating of specific movie by specific user.
+
+Before model building a model we have to perform Exploratory data analysis (EDA) and select metric for model estimation. Metric is defined by project goal definition: we have to reach root mean squared error (RMSE) \< 0.86490. Thus, RMSE is our metric for this project.
+
+Final RMSE estimation will be performed on the final hold-out validation test set, which we will not use for any other purposes, neither for training model nor for model selection.
+
+
+
+# Data preparation
+```{r libraries, echo=FALSE, message=FALSE, warning=FALSE}
+# loading libraries
+library(tidyverse)
+library(caret)
+library(data.table)
+library(lubridate)
+library(Matrix)
+library(stringr)
+library(pheatmap)
+library(corrplot)
+library(recosystem)
+library(gridExtra)
+library(missMDA)
+```
+
+Code bellow was provided by HarvardX. It downloads data and split it to two datasets: **edx** and **validation**. **Validation** data set will not be used in the code until the final validation of our selected and trained model. Data analysis, model selection/training will be performed on **edx** dataset
+
+This chunk is temporary disabled for testing purposes (I don't want to download and split dataset every time)
+
+```{r edx-val-split, eval = FALSE, echo=TRUE, warning=FALSE, message=FALSE}
+# download data
+dl <- tempfile()
+download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+
+ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
+                 col.names = c("userId", "movieId", "rating", "timestamp"))
+
+movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
+
+
+# name columns
+colnames(movies) <- c("movieId", "title", "genres")
+
+
+# Create Data Frame with movies
+
+# If using R 3.6 or earlier, comment out this statement and use above:
+movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(movieId),
+                                           title = as.character(title),
+                                           genres = as.character(genres))
+
+# Join with rating by movieID
+movielens <- left_join(ratings, movies, by = "movieId")
+
+
+# slice of movielens dataset to edx and validation datasets
+# Validation set will be 10% of MovieLens data
+set.seed(1, sample.kind="Rounding")
+test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
+edx <- movielens[-test_index,]
+temp <- movielens[test_index,]
+
+# Make sure userId and movieId in validation set are also in edx set
+validation <- temp %>% 
+  semi_join(edx, by = "movieId") %>%
+  semi_join(edx, by = "userId")
+
+# Add rows removed from validation set back into edx set
+removed <- anti_join(temp, validation)
+edx <- rbind(edx, removed)
+
+rm(dl, ratings, movies, test_index, temp, movielens, removed)
+
+```
+
+This chunk is used instead:
+
+```{r temp-load}
+load("edx.rda")
+load("validation.rda")
+```
+
+Check datasets dimensions:
+
+Dimensions of Edx dataset are `r dim(edx)` and dimensions of validation dataset are `r dim(validation)`
+
+# Exploratory data analysis
+
+## First look on dataset
+
+```{r class, echo=FALSE}
+class(edx)
+```
+
+Class of our dataset is data.frame, we can work with this data class as is.
+
+Let's see on first 6 records in the dataset:
+
+```{r head, echo=FALSE, tidy=TRUE}
+knitr::kable(head(edx, 6), caption = "Edx dataset first records")
+```
+
+We see that the dataset contains records of each rating was done by user and some information about the movie. For example, first line shows that user with ID = 1 had rated movie with ID=122 by five stars. Date and time of the rating can be extracted from the timestamp and we have additional information about the movie such as it's title, combined with year or release and genres of the movie.
+
+The rating is the numeric variable, so it can take any numeric value. But we need to check, if it is a case. Unique ratings we can find in the dataset:
+
+```{r ratings-unique, echo=FALSE, tidy=TRUE}
+unique(edx$rating)
+```
+
+Statistics of ratings distribution:
+
+```{r ratings-stat, echo=FALSE, tidy=TRUE}
+summary(edx$rating)
+```
+Plot of ratings distribution:
+
+```{r ratings-distr, echo=FALSE, fig.cap = "Distibution of movie ratings", fig.align='center', fig.height= 3}
+edx %>% ggplot(aes(rating)) + 
+  geom_bar(col = "black") +
+  xlab("Rating") + ylab("Count" ) + 
+  scale_y_continuous(breaks = seq(0,3*10^6,10^6),
+                     labels=c("0","1M","2M","3M")) +
+  ggtitle("Distibution of movie ratings") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+If we consider ratings higher than average rating as "positive" and lower than average as "negative", we can find how many positive and negative ratings we have in our dataset:
+
+```{r negative-positive, echo=FALSE}
+knitr::kable(edx %>%
+  mutate(rating_type = if_else(rating > mean(rating), "postitive",
+                               "negative")) %>%
+  group_by(rating_type) %>%
+  count(), 
+  caption = "Negative vs. positive ratings")
+```
+
+As we can see, numbers of positive and negative ratings are approximately equal.
+
+```{r half-whole-star, echo=FALSE}
+knitr::kable(edx %>%
+  mutate(rating_star = if_else(!rating %%1, "whole_star",
+                               "half_star")) %>%
+  group_by(rating_star) %>%
+  count(), 
+  caption = "Half-star vs. whole-star ratings")
+```
+
+After first look on the dataset we can conclude:
+
+-   Each row in the dataset represents single rating of user defined by userId column to movie, defined by movieId column, additional information about movie (genre and title) and rating timestamp;
+
+-   Whole-star rating is much more common than half-star;
+
+-   Average rating is about 3.5, but median is 4;
+
+-   The most common rating in the dataset is 4, and 50% of all ratings are lying between 3 and 4 (inclusive)
+
+## Movies ans users
+
+Number of unique users in dataset: `r n_distinct(edx$userId)`; unique movies in dataset: `r n_distinct(edx$movieId)`.
+
+Total user/movie combinations amount should be: `r n_distinct(edx$userId) * n_distinct(edx$movieId)`.
+
+But as we saw before, we have only `r nrow(edx)` records in the dataset. Only `r paste(round(nrow(edx) / (n_distinct(edx$userId) * n_distinct(edx$movieId)) * 100, 1), "%", sep = "")` of all possible combinations are rated.
+
+To visualize this, we will sample 100 unique users and 100 unique movies and plot matrix with filled cells when user rated the movie and blank cells if not:
+
+```{r movie-user-comp-plot, echo=FALSE, fig.cap = "User-Movie combinations", fig.align='center', fig.height= 6}
+users <- sample(unique(edx$userId), 100)
+sample_matrix <- edx %>% filter(userId %in% users) %>% 
+  select(userId, movieId, rating) %>%
+  mutate(rating = 1) %>%
+  spread(movieId, rating) %>% select(sample(ncol(.), 100)) %>% 
+  as.matrix() %>% t(.)
+sample_matrix  %>%
+  image(1:100, 1:100,. , xlab="Movies", ylab="Users", col = gray.colors(n = 2, start = 0, end = 0))
+abline(h=0:100+0.5, v=0:100+0.5, col = "grey")
+mtext(paste(sum(!is.na(sample_matrix)), 
+                " user-movie combinations are rated (", 
+                round(sum(!is.na(sample_matrix))/sum(is.na(sample_matrix)) * 100, 1), "%) \n"))
+mtext(paste(sum(is.na(sample_matrix)), " user-movie combinations are unrated"))
+title("User-Movie combinations", line = 3, font.main = 1)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# remove variables which we don't need anymore
+rm(users, sample_matrix)
+```
+Looking on Figure 2 we can rewrite our task: we have to build a model, which can fill the matrix for any given user and any given movie.
+
+## Movies analysis
+
+First, let's look on the top-10 and bottom 10 movies:
+
+```{r best-worst-movies, echo=FALSE, message=FALSE}
+knitr::kable(edx %>% group_by(movieId) %>% 
+  summarise(avg_rating = mean(rating), title = title) %>% 
+  arrange(desc(avg_rating)) %>% 
+  distinct() %>%
+  ungroup() %>%
+  select(-movieId) %>%
+  head(10), 
+  caption = "Best movies by rating")
+
+knitr::kable(edx %>% group_by(movieId) %>% 
+  summarise(avg_rating = mean(rating), title = title) %>% 
+  arrange(avg_rating) %>% 
+  distinct() %>%
+  ungroup() %>%
+  select(-movieId) %>%
+  head(10), 
+caption = "Worst movies by rating")
+```
+
+Looking on the tables, we see that the top-10 and bottom-10 movies are not widely known by it's title. Let's look on distribution of number of ratings of movies (how many times specific movie was rated):
+
+```{r ratings-number-movie-distr, echo=FALSE, fig.cap = "Distribution of movies by number of ratings", fig.align='center'}
+edx %>% group_by(movieId) %>% 
+  summarise(number_of_ratings  = n()) %>%
+  ggplot(aes(number_of_ratings)) +
+  geom_histogram(bins = 100, col = "black") + scale_x_log10() +
+  xlab("Number of ratings") + ylab("Count of movies" ) +
+  ggtitle("Distribution of movies by no. of ratings") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+We can see, that approximately half of movies have less than 100 ratings and about 125 movies have only one rating. That can explain our observation of top/bottom 10 movies: very high and very low average movie rating can be done based on very few reviews, or even one review. This can't be reliable and will be taken in account when building a prediction model.
+
+To see, how different ratings are distributed across the dataset, we can plot distribution of the average ratings of movies:
+```{r movie-rating-distr, echo=FALSE, fig.cap = "Distribution of movies by mean rating of movies", fig.align='center'}
+edx %>% group_by(movieId) %>% 
+  summarise(average_movie_ratings  = mean(rating)) %>%
+  ggplot(aes(average_movie_ratings)) +
+  geom_histogram(bins = 100,col = "black") +
+  geom_vline(xintercept = mean(edx$rating), col = "yellow") +
+  xlab("Average rating") + ylab("Count of movies") +
+  ggtitle("Distribution of movies by mean rating of movies") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Thinking logically, the more ratings specific movie has, the more popular it is. Usually, good movies became very popular, therefore they should have higher average rating. To confirm or reject our hypotheses we can plot average movies ratings versus number of ratings for the movie.
+```{r movie-rating-vs-number, echo=FALSE, fig.align='center', fig.cap="Average rating versus number of movie ratings", message=FALSE}
+edx %>% group_by(movieId) %>% 
+  summarise(number_of_ratings  = n(), avg_rating = mean(rating)) %>% 
+  ggplot(aes(number_of_ratings,avg_rating)) +
+  geom_point(alpha= 0.2, color = "blue", lwd = 1) + 
+  ggtitle("Average rating versus number of movie ratings") +
+  geom_smooth(method = "loess", color = "red") + 
+  xlab ("Number of movie ratings") +
+  ylab("Average rating") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+Our hypotheses is confirmed: more often rated movies are also have slightly higher average rating and smaller deviation
+
+Let's look at the top-10 and bottom-10 movies by number of ratings:
+```{r pop-unpop-movies, echo=FALSE, message=FALSE}
+knitr::kable(edx %>% group_by(movieId) %>% 
+  summarise(number_of_ratings  = n(), avg_rating = mean(rating), title = title) %>% 
+  arrange(desc(number_of_ratings)) %>% distinct() %>% head(10), 
+  caption = "Most popular movies")
+
+knitr::kable(edx %>% group_by(movieId) %>% 
+  summarise(number_of_ratings  = n(), avg_rating = mean(rating), title = title) %>% 
+  arrange(number_of_ratings) %>% distinct() %>% head(10), 
+caption = "Least popular movies")
+```
+
+Look at these tables confirms, that movies which were rated more often, have higher average rating.
+We can see that the movie "Hellhounds on My Trail (1999)" also appeared in top rated movies table as it has average rating 5, but it is based only on a single rating, which cannot be reliable. We will take it in account during model building and tuning.
+
+## Users analysis
+Now we will perform similar analysis but for users.
+
+
+
+
+# Literature
+
+1.  [Francesco Ricci and Lior Rokach and Bracha Shapira, Introduction to Recommender Systems Handbook](http://www.inf.unibz.it/~ricci/papers/intro-rec-sys-handbook.pdf)
