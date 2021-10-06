@@ -181,7 +181,7 @@ edx_unique_info$n_user_unique * edx_unique_info$n_movie_unique
 nrow(edx)
 
 # how many ratings are missing?
-paste(round(nrow(edx) / (edx_unique_info$n_user_unique * edx_unique_info$n_movie_unique) * 100, 1), "%")
+paste(round(nrow(edx) / (edx_unique_info$n_user_unique * edx_unique_info$n_movie_unique) * 100, 1), "%", sep = "")
 
 # sample 100 users and 100 movies to visualize rated/unrated user-movie combinations
 users <- sample(unique(edx$userId), 100)
@@ -195,7 +195,7 @@ sample_matrix  %>%
 abline(h=0:100+0.5, v=0:100+0.5, col = "grey")
 mtext(paste(sum(!is.na(sample_matrix)), 
                 " User-movie combinations are rated (", 
-                round(sum(!is.na(sample_matrix))/sum(is.na(sample_matrix)) * 100, 1), " %) \n"))
+                round(sum(!is.na(sample_matrix))/sum(is.na(sample_matrix)) * 100, 1), "%) \n"))
 mtext(paste(sum(is.na(sample_matrix)), " User-movie combinations are unrated"))
 title("User-Movie combinations", line = 3, font.main = 1)
 
@@ -235,7 +235,7 @@ edx %>% group_by(movieId) %>%
   ggplot(aes(number_of_ratings)) +
   geom_histogram(bins = 100, col = "black") + scale_x_log10() +
   xlab("Number of ratings") + ylab("Count of movies" ) +
-  ggtitle("Distribution of movies by no. of rating") +
+  ggtitle("Distribution of movies by no. of ratings") +
   theme(plot.title = element_text(hjust = 0.5))
 
 # we can see, that approximately half of movies have less than 100 ratings
@@ -293,7 +293,7 @@ edx %>% group_by(userId) %>%
   ggplot(aes(number_of_ratings_by_user)) +
   geom_histogram(bins = 100, col = "black") + scale_x_log10() +
   xlab("Number of ratings") + ylab("Count of users" ) +
-  ggtitle("Distribution of users by no. of rating") +
+  ggtitle("Distribution of users by no. of ratings") +
   theme(plot.title = element_text(hjust = 0.5))
 
 # Similar to number of ratings of movies, many users rated only few movies
