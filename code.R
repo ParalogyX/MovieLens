@@ -127,7 +127,9 @@ dim(validation)
 #                         Analysis                        #
 ###########################################################
 
-# first look at the data:
+###########################
+# first look at the data  #
+###########################
 class(edx)
 head(edx)
 str(edx)
@@ -161,7 +163,10 @@ edx %>%
   group_by(rating_star) %>%
   count()
 
-# Movies and users
+
+####################
+# Movies and users #
+####################
 
 # the number of unique users and movies in datasets
 edx_unique_info <- edx %>% 
@@ -172,6 +177,7 @@ edx_unique_info
 # total user/movie combination
 edx_unique_info$n_user_unique * edx_unique_info$n_movie_unique
 
+#number of ratings in dataset
 nrow(edx)
 
 # how many ratings are missing?
@@ -197,7 +203,11 @@ title("User-Movie combinations", line = 3, font.main = 1)
 # remove variables which we don't need anymore
 rm(users, edx_unique_info, sample_matrix)
 
-# Movies analysis
+
+
+###################
+# Movies analysis #
+###################
 
 # top rated movies
 edx %>% group_by(movieId) %>% 
@@ -272,7 +282,10 @@ edx %>% group_by(movieId) %>%
 # We can see that the movie "Hellhounds on My Trail (1999)" also appeared in top rated movies table as it has average rating 5
 # But it is based only on a single rating, which cannot be reliable. We will account it later, during model building and tuning.
 
-# Users analysis
+
+##################
+# Users analysis #
+##################
 
 # the distribution of number of ratings for users
 edx %>% group_by(userId) %>% 
@@ -330,6 +343,10 @@ edx %>% group_by(userId) %>%
 # Much higher variation among the users who rated less movies, compare to users who rated them a lot
 # Average rating of the users who rated many movies tends to be closer to average (3-3.5)
 
+
+############################
+# Year of release analysis #
+############################
 
 # Year in the title cannot be used for prediction. We need to separate it to own column. 
 # Also timestamp as it is is completely uninformative,
@@ -390,6 +407,11 @@ seperate_year_released %>%
 # Movies released in 1940-1960 have higher average rating 
 
 
+
+########################
+# Rating date analysis #
+########################
+
 # Effect of rating year, month and day of the week on average rating
 
 # year
@@ -444,7 +466,11 @@ day_of_rating %>%
 # remove variables which we don't need anymore
 rm(seperate_year_released, day_of_rating, month_of_rating, year_of_rating)
 
-# genres analysis
+
+
+###################
+# Genres analysis #
+###################
 
 n_distinct(edx$genres)
 
@@ -567,10 +593,17 @@ RMSE <- function(true_ratings, predicted_ratings){
   }
 
 
+
 # first model: naive model, predicts always average rating
 mu <- mean(train_set$rating)
 
+# save RMSE
 rmse_results <- data.frame(method = "Just the average", RMSE = RMSE(test_set$rating, mu))
+
+
+###################
+#  Linear models  #
+###################
 
 # include movie bias (we saw, that some movies are more popular than others)
 # bias is the term for effect
@@ -937,7 +970,10 @@ rm(b_g, b_i, b_rm, b_ry, b_u, b_y, genre_avgs, genres_df, movie_avgs, user_avgs,
 rm(lambdas, lambda, predicted_ratings, mu, rmses)
 
 
-# Principal Component Analysis
+
+################################
+# Principal Component Analysis #
+################################
 
 # our model Yui = u + bi+ bu + e
 
@@ -961,11 +997,6 @@ y <- train_small %>%
   select(userId, movieId, rating) %>%
   pivot_wider(names_from = "movieId", values_from = "rating") %>%
   as.matrix()
-# 
-# genres_shorts <- train_set %>% 
-#   select(movieId, genres, title) %>%
-#   distinct() %>% mutate(genres = paste(genres, title, sep = "\n"))
-# 
 
 
 # add row names and column names
@@ -974,7 +1005,6 @@ y <- y[,-1]
 
 
 # name columns as movie title, instead of movieId
-
 movie_titles <- train_set %>% 
   select(movieId, title) %>%
   distinct()
@@ -1024,16 +1054,26 @@ pca$rotation %>% as.data.frame() %>% mutate(titles = rownames(.)) %>%
 
 
 
-# PC1: Sci-Fi/ Fantasy vs. Musical/ Romance
+# PC1: Sci-Fi/ Fantasy vs. Drama
 # PC2: Kid's movies vs. adult movies
 # We see the concept behind matrix factorization. We try to explain the matrix (= the ratings) by searching 
-# for similarities between users and similarities between genres/movies
+# for similarities between users and similarities between movies
 
 
 
 # we can see some strong correlations between some movies
-# That makes sense, that people who loves Sex and the City also like Titanic, e.g.
-# The Matrix has stronger correlation with Terminator and Fifth Element, compare to Sex and the City or Titanic
+# That makes sense, that people who loves Matrix also like Start Trek, e.g.
+
+
+# remove temporary variables
+rm(pca_md, y_md, pca, y, sample_movies, movie_titles, train_small)
+
+
+
+
+####################
+# Recosystem model #
+####################
 
 
 # There is recosystem package for R, which uses matrix factorization.
@@ -1052,73 +1092,41 @@ pca$rotation %>% as.data.frame() %>% mutate(titles = rownames(.)) %>%
 # we can build a model on an avarage laptop with meaningful time
 
 
-
-# remove temporary variables
-rm(pca_md, y_md, pca, y, sample_movies, movie_titles, train_small)
-
-
-# 
-# # find all users who rated Jungle Book
-# jb_users <- train_small %>% filter(title == "Jungle Book, The (1994)") %>%
-#                   select(userId, rating) %>% rename(jb_rating = rating)
-# 
-# # how many of them also rated Sex and the city
-# jb_ss_users <- train_small %>%
-#                 filter(title == "Sex and the City (2008)", userId %in% jb_users$userId) %>%
-#                 select(userId, rating) %>% rename(ss_rating = rating)
-# 
-# 
-# 
-# 
-# # how many of them also rated Matrix
-# jb_ss_m_users <- train_small %>%
-#   filter(title == "Matrix, The (1999)", userId %in% jb_ss_users$userId) %>%
-#   select(userId, rating) %>% rename(m_rating = rating)
-# 
-# # # how many of them also rated Terminal
-# # jb_ss_t_users <- train_small %>%
-# #   filter(title == "Terminal, The (2004)", userId %in% jb_ss_users$userId) %>%
-# #   select(userId, rating) %>% rename(t_rating = rating)
-# 
-# # compare ratings
-# three_movies_rating <- jb_users %>%
-#                       inner_join(jb_ss_users, by = "userId" ) %>%
-#                       inner_join(jb_ss_m_users, by = "userId" )
-# 
-# cor(three_movies_rating, use="pairwise.complete")
-
-# trying recosystem
-
-
+# create new model object
 r = Reco()
 
-
+# keep only userId, movieId (predictors) and rating (outcome) from the trainset
 reco_train <- train_set %>%
   select(userId, movieId, rating)
 
-
+# create an object of class "DataSource" from the new trainset, to use it in train(), tune() and predict() functions
 reco_train <- with(reco_train,
                    data_memory(user_index = userId, item_index = movieId,
                                rating = rating, index1 = TRUE))
 
-# train model with default parameters
-
+# train model with default parameters (first check)
 r$train(reco_train, opts = c(niter = 20))
 
-# test
+# predict on the testset
+# keep only predictors: userId and movieId
 reco_test <- test_set %>%
   select(userId, movieId)
 
+# convert to DataSource
 reco_test <- with(reco_test,
                   data_memory(user_index = userId, item_index = movieId, index1 = TRUE))
 
+# predict
 predicted_ratings <- r$predict(reco_test)
 
+# check RMSE
 RMSE(predicted_ratings, test_set$rating)
 
+# Already better result
 
 
 # cross-validation for optimal parameter
+# tune() function support k-fold cross-validation, thus we will use it. 3-fold will be enough.
 opts = r$tune(reco_train,
               opts = list(dim = c(5, 10, 20, 50),
                           lrate = c(0.1, 0.2),
@@ -1134,30 +1142,37 @@ r$train(reco_train, opts = c(best_options, niter = 50))
 # predict on test_set
 predicted_ratings <- r$predict(reco_test)
 
+# limiting rating 0.5 - 5.0, as we know real ratings can't be out of this range
 predicted_ratings <- ifelse(predicted_ratings > 5, 5, ifelse(predicted_ratings < 0.5, 0.5, predicted_ratings))
 
-
+# add calculated RMSE to the table
 rmse_results <- bind_rows(rmse_results,
                           data.frame(method="Recosystem matrix factorization model",
                                      RMSE = RMSE(predicted_ratings, test_set$rating) ))
 rmse_results
 
+# remove variables, clean environment from variables we don't need
 rm(r, opts, reco_test, reco_train, test_set, train_set, predicted_ratings)
+
 
 # Train recosys model with best parameters on a complete edx dataset
 
+# create new model object
 r = Reco()
 
+# keep only userId, movieId (predictors) and rating (outcome) from the edx
 reco_edx <- edx %>%
   select(userId, movieId, rating)
 
+# convert to recosystem DataSource object
 reco_edx <- with(reco_edx,
                    data_memory(user_index = userId, item_index = movieId,
                                rating = rating, index1 = TRUE))
 
+# train with selected by cross-validation best parameters on a complete edx dataset
 r$train(reco_edx, opts = c(best_options, niter = 50))
 
-# r = best final model
+# r is the our final model
 
 
 ###########################################################
@@ -1165,7 +1180,6 @@ r$train(reco_edx, opts = c(best_options, niter = 50))
 ###########################################################
 
 # keep only userId and movieId in validation set 
-
 reco_validation <- validation %>%
   select(userId, movieId)
 
@@ -1196,25 +1210,3 @@ validation %>% cbind(validation_predict) %>%
 
 
 # Most of the time we are not so far from real rating
-
-
-
-
-# 
-# 
-# # Save all plots for checking
-# # This section is for testing
-# plots.dir.path <- list.files(tempdir(), pattern="rs-graphics", full.names = TRUE); 
-# plots.png.paths <- list.files(plots.dir.path, pattern=".png", full.names = TRUE)
-# 
-# file.copy(from=plots.png.paths, to="plots_to_check/")
-# 
-# plots.png.detials <- file.info(plots.png.paths)
-# plots.png.detials <- plots.png.detials[order(plots.png.detials$mtime),]
-# sorted.png.names <- gsub(plots.dir.path, "plots_to_check/", row.names(plots.png.detials), fixed=TRUE)
-# numbered.png.names <- paste0("plots_to_check/", 1:length(sorted.png.names), ".png")
-# 
-# # Rename all the .png files as: 1.png, 2.png, 3.png, and so on.
-# file.rename(from=sorted.png.names, to=numbered.png.names)
-# 
-# rm(numbered.png.names, plots.dir.path, plots.png.paths, sorted.png.names, plots.png.detials)
