@@ -6,30 +6,26 @@ output:
   pdf_document: 
     number_sections: yes
     fig_caption: yes
-    df_print: paged
     toc: yes
     fig_height: 3
-    fig_crop: no
+    includes:
+      in_header: preamble.tex
 ---
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
+\newpage
 # Introduction
-
 This is a report of HarvardX Data Science program capstone project (PH125.9x).
 
-Goal of the project is to create a movie recommendation system using the MovieLens dataset. Recommender Systems (RSs) are software tools and techniques providing suggestions for items to be of use to a user[1]. It can be used in streaming services such YouTube or Netflix or in web-shops, to suggest user items which he/she, most likely, would buy.
+Goal of the project is to create a movie recommendation system using the MovieLens dataset. Recommender Systems (RSs) are software tools and techniques providing suggestions for items to be of use to a user. It can be used in streaming services such YouTube or Netflix or in web-shops, to suggest user items which he/she, most likely, would buy.
 
 In this specific case, we will try to predict rating of specific movie by specific user.
 
-Before model building a model we have to perform Exploratory data analysis (EDA) and select metric for model estimation. Metric is defined by project goal definition: we have to reach root mean squared error (RMSE) \< 0.86490. Thus, RMSE is our metric for this project.
+Before building a model we have to perform Exploratory data analysis (EDA) and select metric for model estimation. Metric is defined by project goal definition: we have to reach root mean squared error (RMSE) \< 0.86490. Thus, RMSE is our metric for this project. It can be calculated by equation: $$ RMSE = \sqrt{\frac{1}{N}\displaystyle\sum_{u,i} (\hat{y}_{u,i}-y_{u,i})^{2}} $$
 
 Final RMSE estimation will be performed on the final hold-out validation test set, which we will not use for any other purposes, neither for training model nor for model selection.
-
-
 
 # Data preparation
 ```{r libraries, echo=FALSE, message=FALSE, warning=FALSE}
@@ -46,11 +42,8 @@ library(recosystem)
 library(gridExtra)
 library(missMDA)
 ```
-
-Code bellow was provided by HarvardX. It downloads data and split it to two datasets: **edx** and **validation**. **Validation** data set will not be used in the code until the final validation of our selected and trained model. Data analysis, model selection/training will be performed on **edx** dataset
-
+Code bellow was provided by HarvardX. It downloads data and split it to two datasets: **edx** and **validation**. **Validation** data set will not be used in the code until the final validation of our selected and trained model. Data analysis, model selection/training will be performed on **edx** dataset.  
 This chunk is temporary disabled for testing purposes (I don't want to download and split dataset every time)
-
 ```{r edx-val-split, eval = FALSE, echo=TRUE, warning=FALSE, message=FALSE}
 # download data
 dl <- tempfile()
@@ -96,49 +89,35 @@ edx <- rbind(edx, removed)
 rm(dl, ratings, movies, test_index, temp, movielens, removed)
 
 ```
-
 This chunk is used instead:
-
 ```{r temp-load}
 load("edx.rda")
 load("validation.rda")
 ```
 
 Check datasets dimensions:
-
 Dimensions of Edx dataset are `r dim(edx)` and dimensions of validation dataset are `r dim(validation)`
 
 # Exploratory data analysis
-
 ## First look on dataset
-
-```{r class, echo=FALSE}
+```{r class, echo=TRUE}
 class(edx)
 ```
-
 Class of our dataset is data.frame, we can work with this data class as is.
-
 Let's see on first 6 records in the dataset:
-
 ```{r head, echo=FALSE, tidy=TRUE}
 knitr::kable(head(edx, 6), caption = "Edx dataset first records")
 ```
-
-We see that the dataset contains records of each rating was done by user and some information about the movie. For example, first line shows that user with ID = 1 had rated movie with ID=122 by five stars. Date and time of the rating can be extracted from the timestamp and we have additional information about the movie such as it's title, combined with year or release and genres of the movie.
-
+We see that the dataset contains records of each rating was done by user and some information about the movie. For example, first line shows that user with ID = 1 had rated movie with ID=122 by five stars. Date and time of the rating can be extracted from the timestamp and we have additional information about the movie such as it's title, combined with year or release and genres of the movie.  
 The rating is the numeric variable, so it can take any numeric value. But we need to check, if it is a case. Unique ratings we can find in the dataset:
-
 ```{r ratings-unique, echo=FALSE, tidy=TRUE}
 unique(edx$rating)
 ```
-
 Statistics of ratings distribution:
-
 ```{r ratings-stat, echo=FALSE, tidy=TRUE}
 summary(edx$rating)
 ```
 Plot of ratings distribution:
-
 ```{r ratings-distr, echo=FALSE, fig.cap = "Distibution of movie ratings", fig.align='center', fig.height= 3}
 edx %>% ggplot(aes(rating)) + 
   geom_bar(col = "black") +
@@ -148,9 +127,7 @@ edx %>% ggplot(aes(rating)) +
   ggtitle("Distibution of movie ratings") +
   theme(plot.title = element_text(hjust = 0.5)) 
 ```
-
 If we consider ratings higher than average rating as "positive" and lower than average as "negative", we can find how many positive and negative ratings we have in our dataset:
-
 ```{r negative-positive, echo=FALSE}
 knitr::kable(edx %>%
   mutate(rating_type = if_else(rating > mean(rating), "postitive",
@@ -159,7 +136,6 @@ knitr::kable(edx %>%
   count(), 
   caption = "Negative vs. positive ratings")
 ```
-
 As we can see, numbers of positive and negative ratings are approximately equal.
 
 ```{r half-whole-star, echo=FALSE}
@@ -190,7 +166,6 @@ Total user/movie combinations amount should be: `r n_distinct(edx$userId) * n_di
 But as we saw before, we have only `r nrow(edx)` records in the dataset. Only `r paste(round(nrow(edx) / (n_distinct(edx$userId) * n_distinct(edx$movieId)) * 100, 1), "%", sep = "")` of all possible combinations are rated.
 
 To visualize this, we will sample 100 unique users and 100 unique movies and plot matrix with filled cells when user rated the movie and blank cells if not:
-
 ```{r movie-user-comp-plot, echo=FALSE, fig.cap = "User-Movie combinations", fig.align='center', fig.height= 6}
 users <- sample(unique(edx$userId), 100)
 sample_matrix <- edx %>% filter(userId %in% users) %>% 
@@ -214,9 +189,7 @@ rm(users, sample_matrix)
 Looking on Figure 2 we can rewrite our task: we have to build a model, which can fill the matrix for any given user and any given movie.
 
 ## Movies analysis
-
 First, let's look on the top-10 and bottom 10 movies:
-
 ```{r best-worst-movies, echo=FALSE, message=FALSE}
 knitr::kable(edx %>% group_by(movieId) %>% 
   summarise(avg_rating = mean(rating), title = title) %>% 
@@ -236,9 +209,7 @@ knitr::kable(edx %>% group_by(movieId) %>%
   head(10), 
 caption = "Worst movies by rating")
 ```
-
 Looking on the tables, we see that the top-10 and bottom-10 movies are not widely known by it's title. Let's look on distribution of number of ratings of movies (how many times specific movie was rated):
-
 ```{r ratings-number-movie-distr, echo=FALSE, fig.cap = "Distribution of movies by number of ratings", fig.align='center'}
 edx %>% group_by(movieId) %>% 
   summarise(number_of_ratings  = n()) %>%
@@ -248,7 +219,6 @@ edx %>% group_by(movieId) %>%
   ggtitle("Distribution of movies by no. of ratings") +
   theme(plot.title = element_text(hjust = 0.5))
 ```
-
 We can see, that approximately half of movies have less than 100 ratings and about 125 movies have only one rating. That can explain our observation of top/bottom 10 movies: very high and very low average movie rating can be done based on very few reviews, or even one review. This can't be reliable and will be taken in account when building a prediction model.
 
 To see, how different ratings are distributed across the dataset, we can plot distribution of the average ratings of movies:
@@ -262,8 +232,7 @@ edx %>% group_by(movieId) %>%
   ggtitle("Distribution of movies by mean rating of movies") +
   theme(plot.title = element_text(hjust = 0.5))
 ```
-
-Thinking logically, the more ratings specific movie has, the more popular it is. Usually, good movies became very popular, therefore they should have higher average rating. To confirm or reject our hypotheses we can plot average movies ratings versus number of ratings for the movie.
+Thinking logically, the more ratings specific movie has, the more popular it is. Usually, good movies became very popular, therefore they should have higher average rating. To confirm or reject our hypotheses we can plot average movies ratings versus number of ratings for the movie:
 ```{r movie-rating-vs-number, echo=FALSE, fig.align='center', fig.cap="Average rating versus number of movie ratings", message=FALSE}
 edx %>% group_by(movieId) %>% 
   summarise(number_of_ratings  = n(), avg_rating = mean(rating)) %>% 
@@ -274,10 +243,8 @@ edx %>% group_by(movieId) %>%
   xlab ("Number of movie ratings") +
   ylab("Average rating") +
   theme(plot.title = element_text(hjust = 0.5)) 
-
 ```
-Our hypotheses is confirmed: more often rated movies are also have slightly higher average rating and smaller deviation
-
+Our hypotheses is confirmed: more often rated movies are also have slightly higher average rating and smaller deviation.  
 Let's look at the top-10 and bottom-10 movies by number of ratings:
 ```{r pop-unpop-movies, echo=FALSE, message=FALSE}
 knitr::kable(edx %>% group_by(movieId) %>% 
@@ -290,16 +257,205 @@ knitr::kable(edx %>% group_by(movieId) %>%
   arrange(number_of_ratings) %>% distinct() %>% head(10), 
 caption = "Least popular movies")
 ```
-
 Look at these tables confirms, that movies which were rated more often, have higher average rating.
-We can see that the movie "Hellhounds on My Trail (1999)" also appeared in top rated movies table as it has average rating 5, but it is based only on a single rating, which cannot be reliable. We will take it in account during model building and tuning.
+We can see that the movie "Hellhounds on My Trail (1999)" also appeared in Table 4: Best movies by rating, as it has average rating 5, but it is based only on a single rating, which cannot be reliable. We will take it in account during model building and tuning.
 
 ## Users analysis
 Now we will perform similar analysis but for users.
+First, let's look on the distribution of number of ratings for users:
+```{r ratings-number-users-distr, echo=FALSE, fig.cap = "Distribution of users by number of ratings", fig.align='center'}
+edx %>% group_by(userId) %>% 
+  summarise(number_of_ratings_by_user  = n()) %>%
+  ggplot(aes(number_of_ratings_by_user)) +
+  geom_histogram(bins = 100, col = "black") + scale_x_log10() +
+  xlab("Number of ratings") + ylab("Count of users" ) +
+  ggtitle("Distribution of users by no. of ratings") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+Similar to number of ratings of movies, many users rated only few movies. We can see, that about half of users rated less than approximately 65 movies. We will also take it in account when building a model.
+To see, how different ratings are distributed across all users in the dataset, we can plot distribution of the average ratings which users give to movies:
+```{r user-ratings-distr, echo=FALSE, fig.cap = "Distribution of users by mean rating of users", fig.align='center'}
+edx %>% group_by(userId) %>% 
+  summarise(average_user_ratings  = mean(rating)) %>%
+  ggplot(aes(average_user_ratings)) +
+  geom_histogram(bins = 100,col = "black") +
+  geom_vline(xintercept = mean(edx$rating), col = "yellow") +
+  xlab("Average rating") + ylab("Count of users") +
+  ggtitle("Distribution of users by mean rating of user") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+From the Figure 7 we can see, that some users tend to rate movies with higher score, unlike some of them prefer to give low rating. But majority of users have average rating given to movies higher than average; that makes sense: most of people prefer to watch movies of favorite genre, or with favorite actors, or movies which are blockbusters. In that case, the chance that user who selected specific movie for watching will like it, and rate with higher than average score is high.  
+Let's compare half-star ratings against whole-star rating again, but now for users:
+```{r half-whole-star-users, echo=FALSE}
+knitr::kable(edx %>%
+  mutate(rating_star = if_else(!rating %%1, "whole_star",
+                               "half_star")) %>%
+  group_by(rating_star) %>%
+  count(), 
+  caption = "Half-star vs. whole-star ratings")
+```
+To see, how number of movies rated by user effects on average rating by this user, we can plot one vs another (for users who rated at least 100 movies):
+```{r user-rating-vs-number, echo=FALSE, fig.align='center', fig.cap="Average user rating versus number of user ratings", message=FALSE}
+edx %>% group_by(userId) %>% 
+  filter(n() >= 100) %>%
+  summarise(number_of_ratings_by_user  = n(), avg_rating_by_user = mean(rating)) %>% 
+  ggplot(aes(number_of_ratings_by_user,avg_rating_by_user)) +
+  geom_point(alpha= 0.2, color = "blue", lwd = 1) + 
+  ggtitle("Average user rating versus number of ratings by the user") +
+  geom_smooth(method = "loess", color = "red") + 
+  xlab ("Number of ratings by user") +
+  ylab("Average rating by user") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+```{r active-inactive-users, echo=FALSE, message=FALSE}
+knitr::kable(edx %>% group_by(userId) %>% 
+  summarise(number_of_ratings_by_user  = n(), avg_rating_by_user = mean(rating)) %>% 
+  arrange(desc(number_of_ratings_by_user)) %>% distinct() %>% head(10), 
+  caption = "Most active users")
+
+knitr::kable(edx %>% group_by(userId) %>% 
+  summarise(number_of_ratings_by_user  = n(), avg_rating_by_user = mean(rating)) %>% 
+  arrange(number_of_ratings_by_user) %>% distinct() %>% head(10), 
+caption = "Least active users")
+```
+From the Figure 8 and the Tables 9-10 we can conclude, that much higher variation among the users who rated less movies, compare to users who rated them a lot and average rating of the users who rated many movies tends to be closer to average (3-3.5).  
+
+## Year of release analysis
+Year in the title is not useful for analysis and prediction. We need to separate it to own column. Also timestamp as it is is completely uninformative, therefore is being replaced by year, month and day of the week. These operations are performed by the code:
+```{r year-timestamp-separation}
+edx <- edx %>% 
+  mutate(year_released = as.numeric(str_sub(title,-5,-2)), 
+         year_rated = year(as_datetime(timestamp)),
+         month_rated = month(as_datetime(timestamp)),
+         day_rated = weekdays(as_datetime(timestamp))) %>% 
+  select(-timestamp)
+```
+Range of released years in our dataset is from `r min(edx$year_released)` to `r max(edx$year_released)`.
+Let's look, how many movies were released by each year and how many ratings they received:
+```{r year-numbers, echo=FALSE, fig.align='center', fig.cap="Number of movies and number of movies by year of release", message=FALSE, fig.height= 6}
+# how many movies were released each year
+year_distr1 <- edx %>% distinct(year_released, movieId) %>% 
+                    group_by(year_released) %>%
+                    summarise(number_of_movies = n()) %>%
+                    ggplot(aes(x = year_released, y = number_of_movies)) +
+                    geom_col(col = "black") +
+                    xlab("Year of release") + ylab("Count of movies" )+ 
+                    ggtitle("Distribution of movies by released year") +
+                    theme(plot.title = element_text(hjust = 0.5))
+
+# how many ratings for movies released each year
+
+year_distr2 <- edx %>% 
+                  ggplot(aes(year_released)) +
+                  geom_bar(col = "black") +
+                  xlab("Year of release") + ylab("Count of ratings" ) +
+                  scale_y_continuous(breaks = seq(0,8*10^5, 2*10^5),
+                                     labels=c("0","200k","400k","600k", "800k")) +
+                  ggtitle("Distibution of movie ratings by released year") +
+                  theme(plot.title = element_text(hjust = 0.5)) 
+  
+grid.arrange(year_distr1, year_distr2, nrow=2)
+
+# remove variables which we don't need anymore
+rm(year_distr1, year_distr2)
+```
+Of course, we are interested about effect of released year on rating:
+```{r released-year-rating, echo=FALSE, fig.align='center', fig.cap="Effect of released year on rating", message=FALSE}
+seperate_year_released <- edx %>% group_by(year_released) %>% 
+  summarise(year_released_rating = mean(rating)) %>% arrange(desc(year_released_rating))
 
 
+seperate_year_released %>% 
+  ggplot(aes(year_released,year_released_rating)) + 
+  geom_point(alpha= 0.2, color = "blue", lwd = 1) +
+  geom_smooth(method = "loess", color = "red") +
+  ggtitle("Effect of released year on rating") +
+  xlab("Released year") +
+  ylab("Average rating") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+We see, that at least 250 movies per year are released since 1993. Also, movies of 90-s middle are rated much more often. And movies released in 1940-1960 have higher average rating. It can be explained, that only good movies from that time are still being watched and rated nowadays.
+
+## Rating date analysis
+Let's look on effect of rating year on the average rating:
+```{r rated-year-rating, echo=FALSE, fig.align='center', fig.cap="Effect of rated year on rating", message=FALSE}
+year_of_rating <- edx %>% group_by(year_rated) %>% 
+  summarise(year_rated_rating = mean(rating)) %>% arrange(desc(year_rated_rating))
+
+year_of_rating %>% 
+  ggplot(aes(year_rated,year_rated_rating)) + 
+  geom_point(alpha= 0.2, color = "blue", lwd = 1) +
+  geom_smooth(method = "loess", color = "red") +
+  ggtitle("Effect of rated year on rating") +
+  xlab("Rated year") +
+  ylab("Average rating") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+First year of rating in our dataset is `r min(year_of_rating$year_rated)`.
+Figure 11 shows, that in 1995 users tended to give higher rating to movies than later. It also corresponds to Figure 9: users are watching and rating recent movies more often, therefore movies released in 90-s have higher average rating.  
+Effect of rating month on the average rating:
+```{r rated-month-rating, echo=FALSE, fig.align='center', fig.cap="Effect of rated month on rating", message=FALSE}
+month_of_rating <- edx %>% group_by(month_rated) %>% 
+  summarise(month_rated_rating = mean(rating)) %>% arrange(desc(month_rated_rating))
+
+month_of_rating %>% 
+  ggplot(aes(month_rated,month_rated_rating)) + 
+  geom_point(alpha= 0.2, color = "blue", lwd = 1) +
+  geom_smooth(method = "loess", color = "red") +
+  ggtitle("Effect of rated month on rating") +
+  scale_x_continuous(breaks = seq(1,12)) +
+  xlab("Rated month") +
+  ylab("Average rating") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+Looking on the Figure 12, we can observe that average rating during summer months is lower than across whole year. That can be explained by holiday season and, as consequence, less time spending watching movies.
+Effect of rating month on the average rating:
+```{r rated-day-rating, echo=FALSE, fig.align='center', fig.cap="Effect of rated day on rating", message=FALSE}
+day_of_rating <- edx %>% group_by(day_rated) %>% 
+  summarise(day_rated_rating = mean(rating))
+day_of_rating$day_rated <- ordered(day_of_rating$day_rated, levels=c("Monday", "Tuesday", "Wednesday", "Thursday", 
+                                         "Friday", "Saturday", "Sunday"))
+day_of_rating %>% 
+  ggplot(aes(day_rated, day_rated_rating)) + 
+  geom_point(color = "blue", lwd = 2) +
+  ggtitle("Effect of rated day of the week on rating") +
+  xlab("Rated day of week") +
+  ylab("Average rating") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+Day of week also has some tiny effect on the average rating: a bit higher in weekends. Nevertheless, this difference is very small and we will not use day of week in our model.
+```{r var-remove, echo=FALSE}
+# remove variables which we don't need anymore
+rm(seperate_year_released, day_of_rating, month_of_rating, year_of_rating)
+```
+
+## Genres analysis
+Each row in the edx dataset contains genres of rated movie. Movie doesn't have to have only one genre, genres combinations are more common (e.g. "Action|War|Drama" and "Action|Comedy" most probably completely different movies, despite both have "Action" in their genres). There are `r n_distinct(edx$genres)` unique genres combinations. Let's look on some of them:
+```{r genres-comb, echo=FALSE}
+knitr::kable(head(edx$genres, 10), caption = "Genres combinations overview")
+```
+How many of them are unique or about to be unique in our dataset:
+```{r bottom-genres-comb, echo=FALSE}
+knitr::kable(edx %>% group_by(genres) %>%
+  summarise(number_of_ratings = n()) %>% arrange(number_of_ratings)%>% head(20),
+  caption = "Unique genres combinations")
+```
+As we can see, many genres combinations have very few ratings, therefore we will split them to separate genres for further analysis:
+```{r split-genres}
+separated_genres <- edx %>% separate_rows(genres, sep = "\\|") %>%
+  group_by(genres) %>%
+  summarise(number_of_ratings = n(), avg_rating = mean(rating))
+```
+Let's look on separated genres, how often they appear in the dataset an their average ratings:
+```{r separated-genres, echo=FALSE, message=FALSE}
+knitr::kable(separated_genres %>% arrange(desc(avg_rating)) , 
+  caption = "Separated genres")
+```
 
 
+\newpage
 # Literature
 
 1.  [Francesco Ricci and Lior Rokach and Bracha Shapira, Introduction to Recommender Systems Handbook](http://www.inf.unibz.it/~ricci/papers/intro-rec-sys-handbook.pdf)
+2.  [Rafael A. Irizarry, Introduction to Data Science](https://rafalab.github.io/dsbook/)
+3.  [Documentation to ‘recosystem’ package](https://cran.r-project.org/web/packages/recosystem/recosystem.pdf)
