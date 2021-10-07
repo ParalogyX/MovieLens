@@ -26,7 +26,7 @@ Goal of the project is to create a movie recommendation system using the MovieLe
 
 In this specific case, we will try to predict rating of specific movie by specific user.
 
-Before building a model we have to perform Exploratory data analysis (EDA) and select metric for model estimation. Metric is defined by project goal definition: we have to reach root mean squared error (RMSE) \< 0.86490. Thus, RMSE is our metric for this project. It can be calculated by equation: $$ RMSE = \sqrt{\frac{1}{N}\displaystyle\sum_{u,i} (\hat{y}_{u,i}-y_{u,i})^{2}} $$
+Before building a model we have to perform Exploratory data analysis (EDA) and select metric for model estimation. Metric is defined by project goal definition: we have to reach root mean squared error (RMSE) \< 0.86490. Thus, RMSE is our metric for this project. It can be calculated by equation: $$ RMSE = \sqrt{\frac{1}{N}\displaystyle\sum_{u,i} (\hat{y}_{u,i}-y_{u,i})^{2}}, $$where $N$ is size of test-set, $y_{u,i}$ is the true rating given by user $u$ to movie $i$ and $\hat{y}_{u,i}$ is the predicted rating given by user $u$ to movie $i$.
 
 Final RMSE estimation will be performed on the final hold-out validation test set, which we will not use for any other purposes, neither for training model nor for model selection.
 
@@ -625,28 +625,18 @@ train_set <- rbind(train_set, removed)
 # remove temporary variables
 rm(test_index, temp, removed)
 ```
-Check dimensions: dimensions of train-set are `r dim(train_set)` and dimensions of test-set are `r dim(test_set)`.  
+
+Check dimensions: dimensions of train-set are `r dim(train_set)` and dimensions of test-set are `r dim(test_set)`.\
 Function of the RMSE is defined by code:
+
 ```{r rmse_fun, echo=TRUE}
 # function to estimate RMSE
 RMSE <- function(true_ratings, predicted_ratings){
   sqrt(mean((true_ratings - predicted_ratings)^2))
   }
 ```
-## First model 
 
-
-
-
-
-
-
-
-
-
-
-
-
+## First model
 
 \newpage
 
