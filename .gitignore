@@ -7,3 +7,4 @@ ml-10M100K/
 .RDataTmp1
 edx.rda
 validation.rda
+report.log
