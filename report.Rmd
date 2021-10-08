@@ -27,7 +27,7 @@ Goal of the project is to create a movie recommendation system using the MovieLe
 
 In this specific case, we will try to predict rating of specific movie by specific user.
 
-Before building a model we have to perform Exploratory data analysis (EDA) and select metric for model estimation. Metric is defined by project goal definition: we have to reach root mean squared error (RMSE) \< 0.86490. Thus, RMSE is our metric for this project. It can be calculated by equation: $$ RMSE = \sqrt{\frac{1}{N}\displaystyle\sum_{u,i} (\hat{y}_{u,i}-y_{u,i})^{2}}, $$where $N$ is size of test-set, $y_{u,i}$ is the true rating given by user $u$ to movie $i$ and $\hat{y}_{u,i}$ is the predicted rating given by user $u$ to movie $i$. Root mean squared error (RMSE) is reported in the same units as the outcomes, which makes understanding what is large and what is small enough RMSE more intuitive.
+Before building a model we have to perform Exploratory data analysis (EDA) and select metric for model estimation. Metric is defined by project goal definition: we have to reach root mean squared error (RMSE) lower than 0.86490. Thus, RMSE is our metric for this project. It can be calculated by equation: $$ RMSE = \sqrt{\frac{1}{N}\displaystyle\sum_{u,i} (\hat{y}_{u,i}-y_{u,i})^{2}}, $$where $N$ is size of test-set, $y_{u,i}$ is the true rating given by user $u$ to movie $i$ and $\hat{y}_{u,i}$ is the predicted rating given by user $u$ to movie $i$. Root mean squared error (RMSE) is reported in the same units as the outcomes, which makes understanding what is large and what is small enough RMSE more intuitive.
 
 Final RMSE estimation will be performed on the final hold-out validation test set, which we will not use for any other purposes, neither for training model nor for model selection.
 
@@ -163,6 +163,8 @@ After first look on the dataset we can conclude:
 
 -   Each row in the dataset represents single rating of user defined by userId column to movie, defined by movieId column, additional information about movie (genre and title) and rating timestamp;
 
+-   Ratings are in range 0.5 - 5.0, with 0.5 step;
+
 -   Whole-star rating is much more common than half-star;
 
 -   Average rating is about 3.5, but median is 4;
@@ -239,7 +241,7 @@ edx %>% group_by(movieId) %>%
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-We can see, that approximately half of movies have less than 100 ratings and about 125 movies have only one rating. That can explain our observation of top/bottom 10 movies: very high and very low average movie rating can be done based on very few reviews, or even one review. This can't be reliable and will be taken in account when building a prediction model.
+We can see, that approximately half of movies have less than 100 ratings and about 125 movies have only one rating. That can explain our observation of top/bottom 10 movies: very high and very low average movie rating can be done based on very few reviews, or even one review. This cannot be reliable and will be taken in account when building a prediction model.
 
 To see, how different ratings are distributed across the dataset, we can plot distribution of the average ratings of movies:
 
@@ -451,7 +453,7 @@ month_of_rating %>%
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-Looking on the Figure 12, we can observe that average rating during summer months is lower than across whole year. That can be explained by holiday season and, as consequence, less time spending watching movies. Effect of rating month on the average rating:
+Looking on the Figure 12, we can observe that average rating during summer months is lower than across whole year. That can be explained by holiday season and, as consequence, less time spending watching movies. Effect of rating weekday on the average rating:
 
 ```{r rated-day-rating, echo=FALSE, fig.align='center', fig.cap="Effect of rated day on rating", message=FALSE}
 day_of_rating <- edx %>% group_by(day_rated) %>% 
@@ -581,7 +583,7 @@ After performing exploratory data analysis, we can summarize some important obse
 
 -   We have edx dataset, with ratings done by a user for a movie and some information about the movie;
 
--   Ratings are in range 0.5 - 5.0, with 0.5 step. Full-star ratings are much more common compare to half-star ones;
+-   Ratings are in range 0.5 - 5.0;
 
 -   Different average ratings are not equally distributed across movies and users: there are more or less popular movies from one side and more or less cranky users from other side;
 
@@ -601,7 +603,7 @@ In this chapter we will try different approaches to build prediction model.
 
 ## Validation technique
 
-If we train and test the model on the same dataset, we can't be sure that the same behavior the model will show on real data. Because edx dataset is relatively large, for validation of different models we will use hold-out method: we will split it to train (70%) and test (30%) subsets, both having the same users and movies:
+If we train and test the model on the same dataset, we cannot be sure that the same behavior the model will show on real data. Because edx dataset is relatively large, for validation of different models we will use hold-out method: we will split it to train (70%) and test (30%) subsets, both having the same users and movies:
 
 ```{r edx-split, echo=TRUE, warning=FALSE, message=FALSE}
 test_index <- createDataPartition(y = edx$rating, times = 1, p = 0.3, list = FALSE)
@@ -956,8 +958,8 @@ predicted_ratings <- ifelse(predicted_ratings > 5, 5,
 
 # add calculated RMSE to the table
 rmse_results <- bind_rows(rmse_results,
-                          data.frame(method="Regularized movie + user + year + genre effect model",
-                                     RMSE = RMSE(predicted_ratings, test_set$rating) ))
+              data.frame(method="Regularized movie + user + year + genre effect model",
+                        RMSE = RMSE(predicted_ratings, test_set$rating) ))
 ```
 
 Result is:
@@ -1102,8 +1104,8 @@ predicted_ratings <- ifelse(predicted_ratings > 5, 5,
 
 # add calculated RMSE to the table
 rmse_results <- bind_rows(rmse_results,
-                          data.frame(method="Regularized movie + user + year + genre + rating year and month effect model",
-                                     RMSE = RMSE(predicted_ratings, test_set$rating) ))
+data.frame(method="Regularized movie + user + year + genre + rating year and month effect model",
+            RMSE = RMSE(predicted_ratings, test_set$rating) ))
 ```
 
 Result is:
@@ -1166,7 +1168,7 @@ pca_md <- imputePCA(y, ncp = 3)
 y_md <- pca_md$completeObs
 ```
 
-And then we will apply *prcomp()* function, from default R "stats" package, on the imputed matrix in order to perform PDA and find all principal components:
+And then we will apply *prcomp()* function, from default R "stats" package, on the imputed matrix in order to perform PCA and find all principal components:
 
 ```{r prcomp}
 pca <- prcomp(y_md)
@@ -1212,7 +1214,7 @@ pca$rotation %>% as.data.frame() %>% mutate(titles = rownames(.)) %>%
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-From the Figure 25 we can see we can see some strong correlations between some movies. That makes sense, that people who loves Matrix also like Start Trek, e.g. Studying horizontal and vertical axes, we see that PC1 is responsible for Sci-Fi/Fantasy vs. Drama movies and PC2 shows children movies vs. adult movies. Here is explained the concept behind matrix factorization. We try to predict the ratings by searching for similarities between users and similarities between movies.
+From the Figure 25 we can see we can see some strong correlations between some movies. That makes sense, that people who love Matrix also like Start Trek, e.g. Studying horizontal and vertical axes, we see that PC1 is responsible for Sci-Fi/Fantasy vs. Drama movies and PC2 shows children movies vs. adult movies. Here is explained the concept behind matrix factorization. We try to predict the ratings by searching for similarities between users and similarities between movies.
 
 ### Recosystem model
 
@@ -1242,7 +1244,8 @@ r = Reco()
 reco_train <- train_set %>%
   select(userId, movieId, rating)
 
-# create an object of class "DataSource" from the new trainset, to use it in train(), tune() and predict() functions
+# create an object of class "DataSource" from the new trainset, 
+# to use it in train(), tune() and predict() functions
 reco_train <- with(reco_train,
                    data_memory(user_index = userId, item_index = movieId,
                                rating = rating, index1 = TRUE))
@@ -1309,7 +1312,7 @@ It is much better than previous models.
 rm(r, opts, reco_test, reco_train, test_set, train_set, predicted_ratings)
 ```
 
-The latest model shows very good result. Furhter improvement is behind of capstone project, therefore this model will be selected as the final one. Last, we will train the model on the complete edx dataset:
+The latest model shows very good result. Further improvement is beyond the capstone project, therefore this model will be selected as the final one. Last, we will train the model on the complete edx dataset:
 
 ```{r edx-final-train}
 # create new model object
@@ -1330,7 +1333,7 @@ r$train(reco_edx, opts = c(best_options, niter = 50, verbose = FALSE))
 
 **r** is the our final model.
 
-## Validation
+# Validation result
 
 We didn't use **validation** set during complete analysis. All model selection, training, cross-validation were done purely using **edx** set. Now it is time to test our final model on the hold-out validation set:
 
@@ -1352,8 +1355,8 @@ validation_predict <- ifelse(validation_predict > 5, 5,
 
 model_validation_rmse <- RMSE(validation_predict, validation$rating)
 rmse_results <- bind_rows(rmse_results,
-                          data.frame(method="Final model on validation (final hold-out) set",
-                                     RMSE = model_validation_rmse ))
+                data.frame(method="Final model on validation (final hold-out) set",
+                          RMSE = model_validation_rmse ))
 ```
 
 Our final RMSE on validation dataset is: `r RMSE(validation_predict, validation$rating)`. All models results:
@@ -1363,6 +1366,17 @@ knitr::kable(rmse_results, caption = "Final models results")
 ```
 
 # Conclusion
+
+In this project we have built a recommendation system based on MovieLens dataset. We performed exploratory data analysis on the dataset, tested different approaches for outcomes prediction. Our final model is based on matrix factorization and principal component analysis.\
+At the end, the model was tested on the hold-out dataset and the model reported root square mean error `r RMSE(validation_predict, validation$rating)`, this is lower than project requirement 0.86490. Rating timestamp is not used in the model, so the model can be used for "online" recommendations.
+
+Possible future development of the model can be:
+
+-   Gathering additional information about users to predict their movie tastes;
+
+-   Instead of trying to predict exact rating, try to predict would user **u** like movie **i** or not;
+
+-   Use deep learning algorithms.
 
 \newpage
 
