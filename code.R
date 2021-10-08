@@ -985,7 +985,7 @@ rm(lambdas, lambda, predicted_ratings, mu, rmses)
 
 # it takes a lot of time, therefore first try on small dataset
 
-# make small dataset with movies which were rated 50 or more times and users who rated 50 or more movies
+# make small dataset with movies which were rated 3000 or more times and users who rated 250 or more movies
 train_small <- train_set %>% 
   group_by(movieId) %>%
   filter(n() >= 3000) %>% ungroup() %>% 
