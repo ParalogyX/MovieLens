@@ -15,7 +15,7 @@
 #                                                        #
 #                                                        #
 #       Run complete code with console output            #
-#     can take 30-60 minutes, depends on laptop          #
+#     can take 30-60 minutes, depends on a computer      #
 #                                                        #
 # Code itself is well commented as code, for theoretical #
 #     background please look in report.pdf               #
@@ -832,7 +832,7 @@ rmse_results <- bind_rows(rmse_results,
 rmse_results
 
 
-# let's use add year and month of rating
+# let's add year and month of rating
 
 # regularization of all predictors
 lambdas <- seq(0, 10, 0.25)
