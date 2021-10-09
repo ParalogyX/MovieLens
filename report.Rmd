@@ -1,7 +1,15 @@
 ---
 title: "HarvardX Data Science program capstone project"
+subtitle: 'MoviLens recommendation system'
 author: "Vladimir Pedchenko"
-date: "10/6/2021"
+email: "paralogyX@gmail.com"
+date: "10/09/2021"
+header-includes:
+- \usepackage{titling}
+- \pretitle{\begin{center}\LARGE\includegraphics[width=6cm]{HarvardX.jpg}\LARGE\includegraphics[width=3cm]{edx.png}\\[\bigskipamount]\vspace{5cm}}
+- \posttitle{\end{center}}
+include-before:
+- '`\newpage{}`{=latex}'
 output: 
   pdf_document: 
     number_sections: yes
@@ -198,7 +206,7 @@ mtext(paste(sum(is.na(sample_matrix)), " user-movie combinations are unrated"))
 title("User-Movie combinations", line = 3, font.main = 1)
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r var-rem1, echo=FALSE, message=FALSE, warning=FALSE}
 # remove variables which we don't need anymore
 rm(users, sample_matrix)
 ```
@@ -471,7 +479,7 @@ day_of_rating %>%
 
 Day of week also has some tiny effect on the average rating: a bit higher in weekends. Nevertheless, this difference is very small and we will not use day of week in our model.
 
-```{r var-remove, echo=FALSE}
+```{r var-rem2, echo=FALSE}
 # remove variables which we don't need anymore
 rm(seperate_year_released, day_of_rating, month_of_rating, year_of_rating)
 ```
@@ -1116,7 +1124,7 @@ knitr::kable(rmse_results, caption = "Seven models results")
 
 Little improvement is achieved, by adding rating year and month. To get some more meaningful improvement we will try another technique.
 
-```{r echo=FALSE}
+```{r var-rem3, echo=FALSE}
 # clean variable environment from variables which we will not use anymore
 rm(b_g, b_i, b_rm, b_ry, b_u, b_y, genre_avgs, genres_df, movie_avgs, user_avgs, year_avgs)
 rm(lambdas, lambda, predicted_ratings, mu, rmses)
@@ -1269,7 +1277,7 @@ predicted_ratings <- r$predict(reco_test)
 RMSE(predicted_ratings, test_set$rating)
 ```
 
-We got RMSE `r RMSE(predicted_ratings, test_set$rating)` with just default parameters and 20 iterations. Most probably we can improve our result. Because recosystem has k-fold cross-validation integrated in tune() function, we will use 3-fold cross-validation to find best model parameters:
+We got RMSE `r RMSE(predicted_ratings, test_set$rating)` with just default parameters and 20 iterations. Most probably we can improve our result. Because recosystem has k-fold cross-validation integrated in *tune()* function, we will use 3-fold cross-validation to find best model parameters:
 
 ```{r reco-tune, message=FALSE, warning=FALSE}
 opts = r$tune(reco_train,
@@ -1308,7 +1316,7 @@ knitr::kable(rmse_results, caption = "Eight models results")
 
 It is much better than previous models.
 
-```{r echo=FALSE}
+```{r var-rem4, echo=FALSE}
 rm(r, opts, reco_test, reco_train, test_set, train_set, predicted_ratings)
 ```
 
@@ -1374,9 +1382,11 @@ Possible future development of the model can be:
 
 -   Gathering additional information about users to predict their movie tastes;
 
--   Instead of trying to predict exact rating, try to predict would user **u** like movie **i** or not;
+-   Instead of trying to predict exact rating, try to predict if user **u** would like movie **i** or not;
 
--   Use deep learning algorithms.
+-   Use deep learning algorithms;
+
+-   Periodically retrain model using recent users true rating, because users can change their preferences over the time. Also, new users and movies must be added to the dataset.
 
 \newpage
 
